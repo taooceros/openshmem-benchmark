@@ -143,7 +143,7 @@ fn benchmark(cli: &Config) {
     }
 
     unsafe {
-        println!("Finalizing OpenSHMEM");
+        println!("Finalizing OpenSHMEM for pe {}", shmem_my_pe());
         shmem_finalize();
     }
 }
