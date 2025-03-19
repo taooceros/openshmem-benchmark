@@ -60,11 +60,11 @@ fn benchmark(cli: &Config) {
         for i in 0..window_size {
             source.push(Vec::with_capacity_in(data_size, ShMalloc));
             for j in 0..data_size {
-                source[i][j] = (i * data_size + j) as u8;
+                source[i].push((i * data_size + j) as u8);
             }
             dest.push(Vec::with_capacity_in(data_size, ShMalloc));
             for j in 0..data_size {
-                dest[i][j] = 0;
+                dest[i].push(0);
             }
         }
         let running = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
