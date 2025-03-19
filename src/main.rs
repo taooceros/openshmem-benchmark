@@ -1,30 +1,111 @@
 #![feature(allocator_api)]
+use std::ffi::c_void;
+
+use clap::Parser;
 use openshmem_sys::*;
 use shalloc::ShMalloc;
 
 mod shalloc;
 
+#[derive(clap::ValueEnum, Debug, Clone, Copy)]
+enum Operation {
+    Put,
+    Get,
+}
+
+impl ToString for Operation {
+    fn to_string(&self) -> String {
+        match self {
+            Operation::Put => "put".to_string(),
+            Operation::Get => "get".to_string(),
+        }
+    }
+}
+
+#[derive(Parser)]
+#[command(version, about, long_about = None)]
+struct Config {
+    #[arg(short, long, default_value_t = 1)]
+    window_size: usize,
+    #[arg(short, long, default_value_t = 1)]
+    data_size: usize,
+    #[arg(short, long, default_value_t = 1000000)]
+    num_iterations: usize,
+    #[arg(short, long, default_value_t = Operation::Put)]
+    operation: Operation,
+}
+
 fn main() {
+    let config = Config::parse();
+
+    println!(
+        "Benchmarking OpenSHMEM with window size: {} and data size: {}",
+        config.window_size, config.data_size
+    );
+}
+
+fn benchmark(cli: &Config) {
     unsafe {
         shmem_init();
 
-        let mut source = Vec::with_capacity_in(10, ShMalloc);
-        let mut dest = Vec::<_, ShMalloc>::with_capacity_in(10, ShMalloc);
-        dest.resize(10, 0);
+        let operation = cli.operation;
+        let window_size = cli.window_size;
+        let data_size = cli.data_size;
 
-        for i in 0..10 {
-            source.push(i);
+        let mut source = Vec::with_capacity(window_size);
+        let mut dest = Vec::with_capacity(window_size);
+
+        for i in 0..window_size {
+            source.push(Vec::with_capacity_in(data_size, ShMalloc));
+            for j in 0..data_size {
+                source[i][j] = (i * data_size + j) as u8;
+            }
+            dest.push(Vec::with_capacity_in(data_size, ShMalloc));
+            for j in 0..data_size {
+                dest[i][j] = 0;
+            }
         }
+        let running = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+        let r = running.clone();
 
-        if shmem_my_pe() == 0 {
-            println!("source: {:?}", source);
-            shmem_long_put(dest.as_mut_ptr(), source.as_ptr(), source.len(), 1);
-        }
+        ctrlc::set_handler(move || {
+            r.store(false, std::sync::atomic::Ordering::Relaxed);
+        })
+        .expect("Error setting Ctrl-C handler");
 
-        shmem_barrier_all();
+        while running.load(std::sync::atomic::Ordering::Relaxed) {
+            let now = std::time::Instant::now();
+            for _ in 0..cli.num_iterations {
+                if shmem_my_pe() == 0 {
+                    for i in 0..window_size {
+                        match operation {
+                            Operation::Put => {
+                                shmem_putmem(
+                                    dest[i].as_mut_ptr() as *mut c_void,
+                                    source[i].as_ptr() as *const c_void,
+                                    data_size,
+                                    1,
+                                );
+                            }
+                            Operation::Get => {
+                                shmem_getmem(
+                                    dest[i].as_mut_ptr() as *mut c_void,
+                                    source[i].as_ptr() as *const c_void,
+                                    data_size,
+                                    1,
+                                );
+                            }
+                        }
+                    }
+                }
+                shmem_barrier_all();
+            }
 
-        if shmem_my_pe() == 1 {
-            println!("dest: {:?}", dest);
+            let elapsed = now.elapsed();
+
+            let total_messages = cli.num_iterations * window_size;
+            let throughput = total_messages as f64 / elapsed.as_secs_f64();
+            println!("Throughput: {:.2} messages/second", throughput);
         }
     }
 
