@@ -49,25 +49,28 @@ fn main() {
 }
 
 fn benchmark(cli: &Config) {
-    let running = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
-    let r1 = running.clone();
-    let r2 = running.clone();
-    ctrlc::set_handler(move || {
-        r1.store(false, std::sync::atomic::Ordering::Relaxed);
-    })
-    .expect("Error setting Ctrl-C handler");
-
-    if let Some(duration) = cli.duration {
-        std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_secs(duration));
-            r2.store(false, std::sync::atomic::Ordering::Relaxed);
-        });
-    }
-
-    let mut final_throughput = 0.0;
-
     unsafe {
         shmem_init();
+
+        
+        let running = std::sync::Arc::new_in(std::sync::atomic::AtomicBool::new(true), ShMalloc);
+        let r1 = running.clone();
+        let r2 = running.clone();
+        ctrlc::set_handler(move || {
+            r1.store(false, std::sync::atomic::Ordering::Relaxed);
+        })
+        .expect("Error setting Ctrl-C handler");
+
+        let mut final_throughput = 0.0;
+
+        if shmem_my_pe() == 0 {
+            if let Some(duration) = cli.duration {
+                std::thread::spawn(move || {
+                    std::thread::sleep(std::time::Duration::from_secs(duration));
+                    r2.store(false, std::sync::atomic::Ordering::Relaxed);
+                });
+            }
+        }
 
         let operation = cli.operation;
         let window_size = cli.window_size;
@@ -75,6 +78,8 @@ fn benchmark(cli: &Config) {
 
         let mut source = Vec::with_capacity(window_size);
         let mut dest = Vec::with_capacity(window_size);
+
+        let end = Box::new_in(true, ShMalloc);
 
         for i in 0..window_size {
             source.push(Vec::with_capacity_in(data_size, ShMalloc));
@@ -90,6 +95,10 @@ fn benchmark(cli: &Config) {
         while running.load(std::sync::atomic::Ordering::Relaxed) {
             let now = std::time::Instant::now();
             for _ in 0..cli.num_iterations {
+                if !running.load(std::sync::atomic::Ordering::Relaxed) {
+                    break;
+                }
+
                 if shmem_my_pe() == 0 {
                     for i in 0..window_size {
                         match operation {
@@ -125,7 +134,12 @@ fn benchmark(cli: &Config) {
         }
     }
 
-    println!("Final throughput: {:.2} messages/second", final_throughput);
+    unsafe {
+        shmem_char_p(running.as_ptr() as *mut i8, true as i8, 1);
+        shmem_barrier_all();
+    }
+
+    eprintln!("Final throughput: {:.2} messages/second", final_throughput);
 
     unsafe {
         println!("Finalizing OpenSHMEM");

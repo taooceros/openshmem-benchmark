@@ -5,6 +5,7 @@ use std::{
 
 use openshmem_sys::{shfree, shmalloc, shmemalign, shrealloc};
 
+#[derive(Clone)]
 pub struct ShMalloc;
 
 unsafe impl Allocator for ShMalloc {

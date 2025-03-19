@@ -1,9 +1,23 @@
 cargo build --release
 
-for window_size in [1 2 4 8 16 32 64 128] {
-    for data_size in [1 2 4 8 16 32 64 128] {
+mut records = []
+
+for data_size in [1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384] {
+    for window_size in [1 2 4 8 16 32 64 128] {
         echo "Running with window size: $window_size, data size: $data_size, iterations: $iterations"
-        mpirun --wdir . --hostfile hostfile -mca pml ucx --mca btl ^vader,tcp,openib,uct -x UCX_NET_DEVICES=mlx5_1:1 ./target/release/openshmem-benchmark -w $window_size -s $data_size -d 2
+        let output = mpirun --wdir . --hostfile hostfile -mca pml ucx --mca btl ^vader,tcp,openib,uct -x UCX_NET_DEVICES=mlx5_1:1 ./target/release/openshmem-benchmark -w $window_size -s $data_size -d 2 -n 100000 err>| to text
+        print $output
+        let output_lines = $output | lines
+        let throughput = ($output_lines | where ($it starts-with "Final throughput:") | first | split row " " | get 2)
+        print $"[($data_size); ($window_size)] Throughput: ($throughput) M/s"
+        let record = {
+            "data_size": $data_size,
+            "window_size": $window_size,
+            "throughput": $throughput
+        }
+
+        $records = $records | append $record
     }
 }
-mpirun --wdir . --hostfile hostfile -mca pml ucx --mca btl ^vader,tcp,openib,uct -x UCX_NET_DEVICES=mlx5_1:1 ./target/release/openshmem-benchmark
+
+$records | to csv | save "throughputs.csv"
