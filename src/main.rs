@@ -134,8 +134,11 @@ fn benchmark(cli: &Config) {
 
         println!("pe {}: stopping benchmark", shmem_my_pe());
 
-        shmem_char_p(running.as_ptr() as *mut i8, true as i8, 1);
-        shmem_barrier_all();
+        // let only the main pe to stop others
+        if shmem_my_pe() == 0 {
+            shmem_char_p(running.as_ptr() as *mut i8, false as i8, 1);
+            shmem_barrier_all();
+        }
         eprintln!("Final throughput: {:.2} messages/second", final_throughput);
     }
 
