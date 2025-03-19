@@ -42,6 +42,8 @@ fn main() {
         "Benchmarking OpenSHMEM with window size: {} and data size: {}",
         config.window_size, config.data_size
     );
+
+    benchmark(&config);
 }
 
 fn benchmark(cli: &Config) {
