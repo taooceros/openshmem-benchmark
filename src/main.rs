@@ -49,7 +49,6 @@ fn main() {
 }
 
 fn benchmark(cli: &Config) {
-    
     let running = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
     let r1 = running.clone();
     let r2 = running.clone();
@@ -64,6 +63,8 @@ fn benchmark(cli: &Config) {
             r2.store(false, std::sync::atomic::Ordering::Relaxed);
         });
     }
+
+    let mut final_throughput = 0.0;
 
     unsafe {
         shmem_init();
@@ -89,6 +90,9 @@ fn benchmark(cli: &Config) {
         while running.load(std::sync::atomic::Ordering::Relaxed) {
             let now = std::time::Instant::now();
             for _ in 0..cli.num_iterations {
+                if !running.load(std::sync::atomic::Ordering::Relaxed) {
+                    break;
+                }
                 if shmem_my_pe() == 0 {
                     for i in 0..window_size {
                         match operation {
@@ -119,8 +123,12 @@ fn benchmark(cli: &Config) {
             let total_messages = cli.num_iterations * window_size;
             let throughput = total_messages as f64 / elapsed.as_secs_f64();
             println!("Throughput: {:.2} messages/second", throughput);
+
+            final_throughput = throughput;
         }
     }
+
+    println!("Final throughput: {:.2} messages/second", final_throughput);
 
     unsafe {
         println!("Finalizing OpenSHMEM");
