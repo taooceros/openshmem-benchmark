@@ -52,7 +52,6 @@ fn benchmark(cli: &Config) {
     unsafe {
         shmem_init();
 
-        
         let running = std::sync::Arc::new_in(std::sync::atomic::AtomicBool::new(true), ShMalloc);
         let r1 = running.clone();
         let r2 = running.clone();
@@ -132,14 +131,11 @@ fn benchmark(cli: &Config) {
 
             final_throughput = throughput;
         }
-    }
 
-    unsafe {
         shmem_char_p(running.as_ptr() as *mut i8, true as i8, 1);
         shmem_barrier_all();
+        eprintln!("Final throughput: {:.2} messages/second", final_throughput);
     }
-
-    eprintln!("Final throughput: {:.2} messages/second", final_throughput);
 
     unsafe {
         println!("Finalizing OpenSHMEM");
