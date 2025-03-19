@@ -28,9 +28,11 @@ struct Config {
     #[arg(short, long, default_value_t = 1)]
     window_size: usize,
     #[arg(short, long, default_value_t = 1)]
-    data_size: usize,
+    size: usize,
     #[arg(short, long, default_value_t = 1000000)]
     num_iterations: usize,
+    #[arg(short, long, value_enum)]
+    duration: Option<u64>,
     #[arg(short, long, default_value_t = Operation::Put)]
     operation: Operation,
 }
@@ -40,19 +42,35 @@ fn main() {
 
     println!(
         "Benchmarking OpenSHMEM with window size: {} and data size: {} with {} iterations",
-        config.window_size, config.data_size, config.num_iterations
+        config.window_size, config.size, config.num_iterations
     );
 
     benchmark(&config);
 }
 
 fn benchmark(cli: &Config) {
+    
+    let running = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
+    let r1 = running.clone();
+    let r2 = running.clone();
+    ctrlc::set_handler(move || {
+        r1.store(false, std::sync::atomic::Ordering::Relaxed);
+    })
+    .expect("Error setting Ctrl-C handler");
+
+    if let Some(duration) = cli.duration {
+        std::thread::spawn(move || {
+            std::thread::sleep(std::time::Duration::from_secs(duration));
+            r2.store(false, std::sync::atomic::Ordering::Relaxed);
+        });
+    }
+
     unsafe {
         shmem_init();
 
         let operation = cli.operation;
         let window_size = cli.window_size;
-        let data_size = cli.data_size;
+        let data_size = cli.size;
 
         let mut source = Vec::with_capacity(window_size);
         let mut dest = Vec::with_capacity(window_size);
@@ -67,13 +85,6 @@ fn benchmark(cli: &Config) {
                 dest[i].push(0);
             }
         }
-        let running = std::sync::Arc::new(std::sync::atomic::AtomicBool::new(true));
-        let r = running.clone();
-
-        ctrlc::set_handler(move || {
-            r.store(false, std::sync::atomic::Ordering::Relaxed);
-        })
-        .expect("Error setting Ctrl-C handler");
 
         while running.load(std::sync::atomic::Ordering::Relaxed) {
             let now = std::time::Instant::now();
