@@ -90,10 +90,6 @@ fn benchmark(cli: &Config) {
         while running.load(std::sync::atomic::Ordering::Relaxed) {
             let now = std::time::Instant::now();
             for _ in 0..cli.num_iterations {
-                if !running.load(std::sync::atomic::Ordering::Relaxed) {
-                    shmem_barrier_all();
-                    break;
-                }
                 if shmem_my_pe() == 0 {
                     for i in 0..window_size {
                         match operation {
