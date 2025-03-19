@@ -39,8 +39,8 @@ fn main() {
     let config = Config::parse();
 
     println!(
-        "Benchmarking OpenSHMEM with window size: {} and data size: {}",
-        config.window_size, config.data_size
+        "Benchmarking OpenSHMEM with window size: {} and data size: {} with {} iterations",
+        config.window_size, config.data_size, config.num_iterations
     );
 
     benchmark(&config);
