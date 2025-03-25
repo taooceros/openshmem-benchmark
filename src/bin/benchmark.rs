@@ -126,7 +126,7 @@ fn benchmark(cli: &Config) {
 
     let local_running = setup_exit_signal(cli.duration, &scope);
 
-    let mut running = OsmBox::new(AtomicBool::new(true), &scope);
+    let running = OsmBox::new(AtomicBool::new(true), &scope);
 
     let operation = cli.operation;
     let epoch_size = cli.epoch_size;
@@ -164,6 +164,24 @@ fn benchmark(cli: &Config) {
         .dest(&mut dests[target_pe])
         .call();
 
+    output(
+        &scope,
+        running,
+        num_pe,
+        num_concurrency,
+        my_pe,
+        final_throughput,
+    );
+}
+
+fn output(
+    scope: &OsmScope,
+    mut running: OsmBox<'_, AtomicBool>,
+    num_pe: i32,
+    num_concurrency: usize,
+    my_pe: usize,
+    final_throughput: f64,
+) {
     println!("pe {}: stopping benchmark", scope.my_pe());
 
     // let only the main pe to stop others
