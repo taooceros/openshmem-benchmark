@@ -5,7 +5,7 @@ let second_host = $env.SECOND_HOST
 def execute [epoch_size: int, data_size: int, iterations: int, num_pe: int = 1, duration = 2] {
     print $second_host
     let hosts = $"localhost:($num_pe),($second_host):($num_pe)"
-    mpirun --wdir . --host $hosts -mca pml ucx --mca btl ^vader,tcp,openib,uct --mca opal_base_help_aggregate 0 -x UCX_NET_DEVICES=mlx5_1:1 ./target/release/benchmark --epoch-size $epoch_size -s $data_size -d $duration -n $iterations
+    mpirun --wdir . --host $hosts -mca pml ucx --mca btl ^vader,tcp,openib,uct -x UCX_NET_DEVICES=mlx5_1:1 ./target/release/benchmark --epoch-size $epoch_size -s $data_size -d $duration -n $iterations
 }
 
 def "main" [] {

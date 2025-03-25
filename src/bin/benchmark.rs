@@ -48,7 +48,6 @@ struct Config {
 fn main() {
     let config = Config::parse();
     benchmark(&config);
-    println!("Finalizing OpenSHMEM Benchmark");
 }
 
 fn setup_exit_signal(timeout: Option<u64>, scope: &OsmScope) -> Arc<AtomicBool> {
@@ -126,7 +125,7 @@ fn benchmark(cli: &Config) {
 
     let local_running = setup_exit_signal(cli.duration, &scope);
 
-    let running = OsmBox::new(AtomicBool::new(true), &scope);
+    let mut running = OsmBox::new(AtomicBool::new(true), &scope);
 
     let operation = cli.operation;
     let epoch_size = cli.epoch_size;
@@ -164,24 +163,6 @@ fn benchmark(cli: &Config) {
         .dest(&mut dests[target_pe])
         .call();
 
-    output(
-        &scope,
-        running,
-        num_pe,
-        num_concurrency,
-        my_pe,
-        final_throughput,
-    );
-}
-
-fn output(
-    scope: &OsmScope,
-    mut running: OsmBox<'_, AtomicBool>,
-    num_pe: i32,
-    num_concurrency: usize,
-    my_pe: usize,
-    final_throughput: f64,
-) {
     println!("pe {}: stopping benchmark", scope.my_pe());
 
     // let only the main pe to stop others
@@ -193,10 +174,14 @@ fn output(
             source.put_to_nbi(&mut running, i);
         }
 
-        scope.barrier_all();
+        // scope.barrier_all(); // not clear why we don't need a barrier here
     }
 
-    eprintln!("Final throughput: {:.2} messages/second", final_throughput);
+    output(&scope, num_concurrency, my_pe, final_throughput);
+}
+
+fn output(scope: &OsmScope, num_concurrency: usize, my_pe: usize, final_throughput: f64) {
+    // eprintln!("Final throughput: {:.2} messages/second", final_throughput);
 
     let mut throughputs = ShVec::with_capacity(num_concurrency, &scope);
 
@@ -209,7 +194,7 @@ fn output(
         my_throughput.put_to_nbi(&mut throughputs[my_pe], 0);
     }
 
-    println!("pe {}: waiting for others", scope.my_pe());
+    // println!("pe {}: waiting for others", scope.my_pe());
 
     // sync all the pe
     scope.barrier_all();
@@ -219,8 +204,6 @@ fn output(
             println!("PE {}: {:.2} messages/second", i, throughputs[i].deref());
         }
     }
-
-    println!("Finalizing OpenSHMEM for pe {}", scope.my_pe());
 }
 
 #[builder]

@@ -11,6 +11,8 @@ impl OsmScope {
 
 impl Drop for OsmScope {
     fn drop(&mut self) {
+        println!("Finalizing OpenSHMEM for pe {}", self.my_pe());
+
         unsafe { shmem_finalize() };
     }
 }
