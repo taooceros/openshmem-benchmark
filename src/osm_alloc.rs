@@ -12,7 +12,8 @@ pub struct OsmMalloc<'a> {
 }
 
 impl<'a> OsmMalloc<'a> {
-    pub fn new(scope: &'a OsmScope) -> Self {
+    #[inline(always)]
+    pub fn new(_scope: &'a OsmScope) -> Self {
         Self { _marker: std::marker::PhantomData }
     }
 }
