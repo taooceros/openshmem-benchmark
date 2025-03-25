@@ -130,7 +130,9 @@ fn benchmark(cli: &Config) {
     let operation = cli.operation;
     let epoch_size = cli.epoch_size;
     let data_size = cli.size;
-    let num_concurrency = (scope.num_pes() / 2) as usize;
+
+    let num_pe = scope.num_pes();
+    let num_concurrency = (num_pe / 2) as usize;
 
     let mut sources = Vec::with_capacity(num_concurrency);
     let mut dests = Vec::with_capacity(num_concurrency);
@@ -167,7 +169,7 @@ fn benchmark(cli: &Config) {
         // set the running flag to false
         let source = OsmBox::new(AtomicBool::new(false), &scope);
         println!("pe {}: stopping others", scope.my_pe());
-        for i in 1..num_concurrency as i32 {
+        for i in 1..num_pe as i32 {
             source.put_to_nbi(&mut running, i);
         }
 
