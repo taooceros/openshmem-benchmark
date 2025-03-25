@@ -183,11 +183,14 @@ fn benchmark(cli: &Config) {
 
     let my_throughput = OsmBox::new(final_throughput, &scope);
 
-    my_throughput.broadcast_to(
-        &mut throughputs[my_pe],
-        unsafe { oshmem_team_world },
-        my_pe as i32,
-    );
+    // only sync half the pe
+    if my_pe < num_pe {
+        my_throughput.broadcast_to(
+            &mut throughputs[my_pe],
+            unsafe { oshmem_team_world },
+            my_pe as i32,
+        );
+    }
 
     scope.barrier_all();
     if scope.my_pe() == 0 {
