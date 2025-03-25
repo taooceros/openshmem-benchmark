@@ -1,17 +1,19 @@
 #![feature(allocator_api)]
 
+use core::num;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
 use bon::builder;
 use clap::Parser;
-use libc::gethostname;
-use openshmem_benchmark::{osm_alloc::OsmMalloc, osm_scope::OsmScope};
+use libc::{_SC_MEMORY_PROTECTION, gethostname};
 use openshmem_benchmark::osm_arc::OsmArc;
+use openshmem_benchmark::osm_box::OsmBox;
 use openshmem_benchmark::osm_scope;
 use openshmem_benchmark::osm_vec::ShVec;
-use openshmem_sys::{my_pe, shmem_char_p};
+use openshmem_benchmark::{osm_alloc::OsmMalloc, osm_scope::OsmScope};
+use openshmem_sys::{my_pe, oshmem_team_world, shmem_char_p};
 
 #[derive(clap::ValueEnum, Debug, Clone, Copy)]
 enum Operation {
@@ -120,7 +122,6 @@ fn benchmark(cli: &Config) {
     let scope = osm_scope::OsmScope::init();
 
     print_config(cli, &scope);
-    
 
     let local_running = setup_exit_signal(if scope.my_pe() == 0 {
         cli.duration
@@ -175,6 +176,26 @@ fn benchmark(cli: &Config) {
         scope.barrier_all();
     }
     eprintln!("Final throughput: {:.2} messages/second", final_throughput);
+
+    let mut throughputs = ShVec::with_capacity(num_pe, &scope);
+
+    throughputs.resize_with(num_pe, || 0.0);
+
+    let my_throughput = OsmBox::new(final_throughput, &scope);
+
+    my_throughput.broadcast_to(
+        &mut throughputs[my_pe],
+        unsafe { oshmem_team_world },
+        my_pe as i32,
+    );
+
+    scope.barrier_all();
+    if scope.my_pe() == 0 {
+        println!("Throughput on all PEs:");
+        for i in 0..num_pe {
+            println!("PE {}: {:.2} messages/second", i, throughputs[i].deref());
+        }
+    }
 
     println!("Finalizing OpenSHMEM for pe {}", scope.my_pe());
 }

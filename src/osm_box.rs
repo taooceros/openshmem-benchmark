@@ -1,4 +1,6 @@
-use crate::{osm_alloc::OsmMalloc, osm_scope::OsmScope};
+use std::mem::transmute;
+
+use crate::{osm_alloc::OsmMalloc, osm_scope::OsmScope, osm_wrapper::OsmWrapper};
 
 pub struct OsmBox<'a, T> {
     data: Box<T, OsmMalloc<'a>>,
@@ -13,9 +15,19 @@ impl<'a, T> OsmBox<'a, T> {
 }
 
 impl<'a, T> std::ops::Deref for OsmBox<'a, T> {
-    type Target = T;
+    type Target = OsmWrapper<T>;
 
     fn deref(&self) -> &Self::Target {
-        &self.data
+        unsafe {
+            transmute(&self.data)
+        }
+    }
+}
+
+impl<'a, T> std::ops::DerefMut for OsmBox<'a, T> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe {
+            transmute(&mut self.data)
+        }
     }
 }

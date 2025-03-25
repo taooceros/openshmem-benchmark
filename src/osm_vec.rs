@@ -7,8 +7,8 @@ pub struct ShVec<'a, T> {
 }
 
 impl<'a, T> ShVec<'a, T> {
-    pub fn new(size: usize, scope: &'a OsmScope) -> Self {
-        let data = Vec::with_capacity_in(size, OsmMalloc::new(scope));
+    pub fn new(scope: &'a OsmScope) -> Self {
+        let data = Vec::new_in(OsmMalloc::new(scope));
         ShVec { data }
     }
 

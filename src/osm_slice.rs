@@ -1,9 +1,13 @@
 use std::{
     mem::transmute,
-    ops::{Deref, DerefMut},
+    ops::{Deref, DerefMut, Index, IndexMut},
 };
 
-use openshmem_sys::{shmem_putmem, shmem_putmem_nbi};
+use openshmem_sys::{
+    shmem_alltoallmem, shmem_broadcastmem, shmem_putmem, shmem_putmem_nbi, shmem_team_t,
+};
+
+use crate::osm_wrapper::OsmWrapper;
 
 #[repr(transparent)]
 pub struct OsmSlice<T> {
@@ -37,6 +41,20 @@ impl<T> Deref for OsmSlice<T> {
 impl<T> DerefMut for OsmSlice<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         &mut self.data
+    }
+}
+
+impl<T> Index<usize> for OsmSlice<T> {
+    type Output = OsmWrapper<T>;
+
+    fn index(&self, index: usize) -> &Self::Output {
+        unsafe { transmute(&self.data[index]) }
+    }
+}
+
+impl<T> IndexMut<usize> for OsmSlice<T> {
+    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
+        unsafe { transmute(&mut self.data[index]) }
     }
 }
 
@@ -81,6 +99,18 @@ impl<T> OsmSlice<T> {
                 other.as_ptr().cast(),
                 std::mem::size_of::<T>() * self.len(),
                 target_pe,
+            );
+        }
+    }
+
+    pub fn broadcast_to(&self, other: &mut Self, team: shmem_team_t, pe_root: i32) {
+        unsafe {
+            shmem_broadcastmem(
+                team,
+                other.as_mut_ptr().cast(),
+                self.as_ptr().cast(),
+                std::mem::size_of::<T>() * self.len(),
+                pe_root,
             );
         }
     }
