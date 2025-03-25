@@ -24,6 +24,10 @@ impl<'a, T> ShVec<'a, T> {
         let data = Vec::with_capacity_in(size, OsmMalloc::new(scope));
         ShVec { data }
     }
+
+    pub fn resize_with(&mut self, size: usize, f: impl Fn() -> T) {
+        self.data.resize_with(size, f);
+    }
 }
 
 impl<'a, T> Deref for ShVec<'a, T> {

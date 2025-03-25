@@ -4,11 +4,13 @@ use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
+use bon::builder;
 use clap::Parser;
 use openshmem_benchmark::osm_alloc::OsmMalloc;
+use openshmem_benchmark::osm_arc::OsmArc;
 use openshmem_benchmark::osm_scope;
 use openshmem_benchmark::osm_vec::ShVec;
-use openshmem_sys::shmem_char_p;
+use openshmem_sys::{my_pe, shmem_char_p};
 
 #[derive(clap::ValueEnum, Debug, Clone, Copy)]
 enum Operation {
@@ -25,7 +27,7 @@ impl ToString for Operation {
     }
 }
 
-#[derive(Parser)]
+#[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Config {
     #[arg(long, default_value_t = 1)]
@@ -34,7 +36,7 @@ struct Config {
     size: usize,
     #[arg(short = 'n', long, default_value_t = 1000000)]
     epoch_per_iteration: usize,
-    #[arg(short='p', long, default_value_t = 1)]
+    #[arg(short = 'p', long, default_value_t = 1)]
     num_pe: usize,
     #[arg(short, long, value_enum)]
     duration: Option<u64>,
@@ -77,23 +79,25 @@ fn setup_exit_signal(timeout: Option<u64>) -> Arc<AtomicBool> {
     return local_running;
 }
 
+#[builder]
 fn setup_data<'a>(
     scope: &'a osm_scope::OsmScope,
-    window_size: usize,
+    epoch_size: usize,
     data_size: usize,
+    num_pe: usize,
 ) -> (Vec<ShVec<'a, u8>>, Vec<ShVec<'a, u8>>) {
-    let mut source = Vec::with_capacity(window_size);
-    let mut dest = Vec::with_capacity(window_size);
+    let mut source = Vec::with_capacity(epoch_size);
+    let mut dest = Vec::with_capacity(epoch_size);
 
-    for i in 0..window_size {
-        source.push(ShVec::with_capacity(data_size, scope));
+    for i in 0..epoch_size {
+        let mut source_entry = ShVec::with_capacity(data_size, scope);
+        let mut dest_entry = ShVec::with_capacity(data_size, scope);
         for j in 0..data_size {
-            source[i].push((i * data_size + j) as u8);
+            source_entry.push((i * data_size + j) as u8);
         }
-        dest.push(ShVec::with_capacity(data_size, scope));
-        for j in 0..data_size {
-            dest[i].push(0);
-        }
+        dest_entry.resize_with(data_size, || 0);
+        source.push(source_entry);
+        dest.push(dest_entry);
     }
 
     (source, dest)
@@ -108,31 +112,78 @@ fn benchmark(cli: &Config) {
         None
     });
 
-    let running = std::sync::Arc::new_in(
-        std::sync::atomic::AtomicBool::new(true),
-        OsmMalloc::new(&scope),
-    );
-
-    let mut final_throughput = 0.0;
+    let running = OsmArc::new(AtomicBool::new(true), &scope);
 
     let operation = cli.operation;
     let epoch_size = cli.epoch_size;
     let data_size = cli.size;
+    let num_pe = cli.num_pe;
 
-    let end = Box::new_in(true, OsmMalloc::new(&scope));
+    let mut sources = Vec::with_capacity(num_pe);
+    let mut dests = Vec::with_capacity(num_pe);
 
-    let (mut source, mut dest) = setup_data(&scope, epoch_size, data_size);
+    for i in 0..num_pe {
+        let (source, dest) = setup_data()
+            .data_size(data_size)
+            .epoch_size(epoch_size)
+            .num_pe(cli.num_pe)
+            .scope(&scope)
+            .call();
 
-    'outer: while running.load(std::sync::atomic::Ordering::Relaxed)
+        sources.push(source);
+        dests.push(dest);
+    }
+
+    let my_pe = scope.my_pe() as usize;
+    let target_pe = my_pe + num_pe;
+
+    let final_throughput = benchmark_loop()
+        .scope(&scope)
+        .local_running(local_running.clone())
+        .running(&running)
+        .operation(operation)
+        .epoch_per_iteration(cli.epoch_per_iteration)
+        .epoch_size(epoch_size)
+        .num_pe(cli.num_pe)
+        .source(&mut sources[my_pe])
+        .dest(&mut dests[target_pe])
+        .call();
+
+    println!("pe {}: stopping benchmark", scope.my_pe());
+
+    // let only the main pe to stop others
+    if scope.my_pe() == 0 {
+        unsafe {
+            shmem_char_p(running.as_ptr() as *mut i8, false as i8, 1);
+        }
+        scope.barrier_all();
+    }
+    eprintln!("Final throughput: {:.2} messages/second", final_throughput);
+
+    println!("Finalizing OpenSHMEM for pe {}", scope.my_pe());
+}
+
+#[builder]
+fn benchmark_loop<'a>(
+    scope: &osm_scope::OsmScope,
+    local_running: Arc<AtomicBool>,
+    running: &OsmArc<'a, AtomicBool>,
+    operation: Operation,
+    epoch_per_iteration: usize,
+    epoch_size: usize,
+    num_pe: usize,
+    source: &mut Vec<ShVec<'a, u8>>,
+    dest: &mut Vec<ShVec<'a, u8>>,
+) -> f64 {
+    let mut final_throughput = 0.0;
+    let my_pe = scope.my_pe() as usize;
+
+    while running.load(std::sync::atomic::Ordering::Relaxed)
         && local_running.load(std::sync::atomic::Ordering::Relaxed)
     {
         let now = std::time::Instant::now();
-        for _ in 0..cli.epoch_per_iteration {
-            if !running.load(std::sync::atomic::Ordering::Relaxed) {
-                break 'outer;
-            }
-
-            if scope.my_pe() == 0 {
+        for _ in 0..epoch_per_iteration {
+            if my_pe < num_pe {
                 for i in 0..epoch_size {
                     match operation {
                         Operation::Put => {
@@ -162,23 +213,12 @@ fn benchmark(cli: &Config) {
 
         let elapsed = now.elapsed();
 
-        let total_messages = cli.epoch_per_iteration * epoch_size;
+        let total_messages = epoch_per_iteration * epoch_size;
         let throughput = total_messages as f64 / elapsed.as_secs_f64();
-        println!("Throughput: {:.2} messages/second", throughput);
+        println!("Throughput on Machine {my_pe}: {:.2} messages/second", throughput);
 
         final_throughput = throughput;
     }
 
-    println!("pe {}: stopping benchmark", scope.my_pe());
-
-    // let only the main pe to stop others
-    if scope.my_pe() == 0 {
-        unsafe {
-            shmem_char_p(running.as_ptr() as *mut i8, false as i8, 1);
-        }
-        scope.barrier_all();
-    }
-    eprintln!("Final throughput: {:.2} messages/second", final_throughput);
-
-    println!("Finalizing OpenSHMEM for pe {}", scope.my_pe());
+    final_throughput
 }
