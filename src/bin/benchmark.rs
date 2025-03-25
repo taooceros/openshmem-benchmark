@@ -34,6 +34,8 @@ struct Config {
     size: usize,
     #[arg(short, long, default_value_t = 1000000)]
     epoch_per_iteration: usize,
+    #[arg(short='p', long, default_value_t = 1)]
+    num_pe: usize,
     #[arg(short, long, value_enum)]
     duration: Option<u64>,
     #[arg(short, long, default_value_t = Operation::Put)]
@@ -43,10 +45,14 @@ struct Config {
 fn main() {
     let config = Config::parse();
 
-    println!(
-        "Benchmarking OpenSHMEM with epoch size: {} and data size: {} with {} epoch per iteration",
-        config.epoch_size, config.size, config.epoch_per_iteration
-    );
+    // print config in format
+    println!("Configuration:");
+    println!("  Epoch Size: {}", config.epoch_size);
+    println!("  Size: {}", config.size);
+    println!("  Epoch per iteration: {}", config.epoch_per_iteration);
+    println!("  Number of PEs: {}", config.num_pe);
+    println!("  Duration: {:?}", config.duration);
+    println!("  Operation: {}", config.operation.to_string());
 
     benchmark(&config);
 }

@@ -1,7 +1,10 @@
 #!/usr/bin/env nu
 
-def execute [window_size data_size iterations duration = 5] {
-    mpirun --wdir . --hostfile hostfile -mca pml ucx --mca btl ^vader,tcp,openib,uct -x UCX_NET_DEVICES=mlx5_1:1 ./target/release/openshmem-benchmark -w $window_size -s $data_size -d $duration -n $iterations
+let second_host = $env.SECOND_HOST
+
+def execute [window_size: int, data_size: int, iterations: int, num_pe: int = 1, duration = 5] {
+    print $second_host
+    mpirun --wdir . --host localhost:($num_pe),($second_host):($num_pe) -mca pml ucx --mca btl ^vader,tcp,openib,uct -x UCX_NET_DEVICES=mlx5_1:1 ./target/release/openshmem-benchmark -w $window_size -s $data_size -d $duration -n $iterations -p 1
 }
 
 def "main" [] {
