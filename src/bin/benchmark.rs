@@ -50,7 +50,7 @@ fn main() {
     benchmark(&config);
 }
 
-fn setup_exit_signal(timeout: Option<u64>) -> Arc<AtomicBool> {
+fn setup_exit_signal(timeout: Option<u64>, scope: &OsmScope) -> Arc<AtomicBool> {
     let local_running = Arc::new(std::sync::atomic::AtomicBool::new(true));
     let lr1 = local_running.clone();
 
@@ -60,11 +60,13 @@ fn setup_exit_signal(timeout: Option<u64>) -> Arc<AtomicBool> {
     .expect("Error setting Ctrl-C handler");
 
     if let Some(timeout) = timeout {
-        let lr2 = local_running.clone();
-        std::thread::spawn(move || {
-            std::thread::sleep(std::time::Duration::from_secs(timeout));
-            lr2.store(false, std::sync::atomic::Ordering::Relaxed);
-        });
+        if scope.my_pe() == 0 {
+            let lr2 = local_running.clone();
+            std::thread::spawn(move || {
+                std::thread::sleep(std::time::Duration::from_secs(timeout));
+                lr2.store(false, std::sync::atomic::Ordering::Relaxed);
+            });
+        }
     }
 
     return local_running;
@@ -121,23 +123,19 @@ fn benchmark(cli: &Config) {
 
     print_config(cli, &scope);
 
-    let local_running = setup_exit_signal(if scope.my_pe() == 0 {
-        cli.duration
-    } else {
-        None
-    });
+    let local_running = setup_exit_signal(cli.duration, &scope);
 
     let mut running = OsmBox::new(AtomicBool::new(true), &scope);
 
     let operation = cli.operation;
     let epoch_size = cli.epoch_size;
     let data_size = cli.size;
-    let num_pe = scope.num_pes() as usize;
+    let num_concurrency = (scope.num_pes() / 2) as usize;
 
-    let mut sources = Vec::with_capacity(num_pe);
-    let mut dests = Vec::with_capacity(num_pe);
+    let mut sources = Vec::with_capacity(num_concurrency);
+    let mut dests = Vec::with_capacity(num_concurrency);
 
-    for _ in 0..num_pe {
+    for _ in 0..num_concurrency {
         let (source, dest) = setup_data()
             .data_size(data_size)
             .epoch_size(epoch_size)
@@ -148,7 +146,7 @@ fn benchmark(cli: &Config) {
         dests.push(dest);
     }
 
-    let my_pe = scope.my_pe() as usize % num_pe;
+    let my_pe = scope.my_pe() as usize % num_concurrency;
     let target_pe = my_pe;
 
     let final_throughput = benchmark_loop()
@@ -158,7 +156,7 @@ fn benchmark(cli: &Config) {
         .operation(operation)
         .epoch_per_iteration(cli.epoch_per_iteration)
         .epoch_size(epoch_size)
-        .num_pe(num_pe)
+        .num_pe(num_concurrency)
         .source(&mut sources[my_pe])
         .dest(&mut dests[target_pe])
         .call();
@@ -170,11 +168,8 @@ fn benchmark(cli: &Config) {
         // set the running flag to false
         let source = OsmBox::new(AtomicBool::new(false), &scope);
         println!("pe {}: stopping others", scope.my_pe());
-        println!("source address {:p}", source.deref());
-        println!("running address {:p}", running.deref());
-        for i in 1..num_pe as i32 {
+        for i in 1..num_concurrency as i32 {
             source.put_to_nbi(&mut running, i);
-            // source.put_to(&mut running, 1);
         }
 
         scope.barrier_all();
@@ -182,16 +177,16 @@ fn benchmark(cli: &Config) {
 
     eprintln!("Final throughput: {:.2} messages/second", final_throughput);
 
-    let mut throughputs = ShVec::with_capacity(num_pe, &scope);
+    let mut throughputs = ShVec::with_capacity(num_concurrency, &scope);
 
-    throughputs.resize_with(num_pe, || 0.0);
+    throughputs.resize_with(num_concurrency, || 0.0);
 
     let my_throughput = OsmBox::new(final_throughput, &scope);
 
     // only sync half the pe
-    if my_pe < num_pe {
-        println!("my thoughput address {:p}", my_throughput.deref());
-        for i in 0..num_pe {
+    if my_pe < num_concurrency {
+        println!("pe {}: my thoughput address {:p} with value {}", my_pe, my_throughput.deref(), my_throughput.deref());
+        for i in 0..num_concurrency {
             if i != my_pe {
                 my_throughput.put_to_nbi(&mut throughputs[i], i as i32);
             }
@@ -202,7 +197,7 @@ fn benchmark(cli: &Config) {
     scope.barrier_all();
     if scope.my_pe() == 0 {
         println!("Throughput on all PEs:");
-        for i in 0..num_pe {
+        for i in 0..num_concurrency {
             println!("PE {}: {:.2} messages/second", i, throughputs[i].deref());
         }
     }
@@ -230,8 +225,7 @@ fn benchmark_loop<'a>(
     {
         let now = std::time::Instant::now();
         for _ in 0..epoch_per_iteration {
-            if !running.load(std::sync::atomic::Ordering::Relaxed)
-            {
+            if !running.load(std::sync::atomic::Ordering::Relaxed) {
                 break 'outer;
             }
             if my_pe < num_pe {
