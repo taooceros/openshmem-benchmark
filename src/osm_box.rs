@@ -19,7 +19,7 @@ impl<'a, T> std::ops::Deref for OsmBox<'a, T> {
 
     fn deref(&self) -> &Self::Target {
         unsafe {
-            transmute(&self.data)
+            transmute(self.data.deref())
         }
     }
 }
@@ -27,7 +27,7 @@ impl<'a, T> std::ops::Deref for OsmBox<'a, T> {
 impl<'a, T> std::ops::DerefMut for OsmBox<'a, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe {
-            transmute(&mut self.data)
+            transmute(self.data.deref_mut())
         }
     }
 }

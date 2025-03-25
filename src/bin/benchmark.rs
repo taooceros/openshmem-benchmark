@@ -169,6 +169,9 @@ fn benchmark(cli: &Config) {
     if scope.my_pe() == 0 {
         // set the running flag to false
         let source = OsmBox::new(AtomicBool::new(false), &scope);
+        println!("pe {}: stopping others", scope.my_pe());
+        println!("source address {:p}", source.deref());
+        println!("running address {:p}", running.deref());
         for i in 1..num_pe as i32 {
             source.put_to_nbi(&mut running, i);
             // source.put_to(&mut running, 1);
