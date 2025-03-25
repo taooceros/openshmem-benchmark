@@ -176,9 +176,10 @@ fn benchmark(cli: &Config) {
             source.put_to_nbi(&mut running, i);
             // source.put_to(&mut running, 1);
         }
+
+        scope.barrier_all();
     }
 
-    scope.barrier_all();
     eprintln!("Final throughput: {:.2} messages/second", final_throughput);
 
     let mut throughputs = ShVec::with_capacity(num_pe, &scope);
