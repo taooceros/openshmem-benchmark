@@ -28,4 +28,8 @@ impl OsmScope {
     pub fn barrier_all(&self) {
         unsafe { shmem_barrier_all() };
     }
+
+    pub fn num_pes(&self) -> i32 {
+        unsafe { shmem_n_pes() }
+    }
 }

@@ -39,8 +39,6 @@ struct Config {
     size: usize,
     #[arg(short = 'n', long, default_value_t = 1000000)]
     epoch_per_iteration: usize,
-    #[arg(short = 'p', long, default_value_t = 1)]
-    num_pe: usize,
     #[arg(short, long, value_enum)]
     duration: Option<u64>,
     #[arg(short, long, default_value_t = Operation::Put)]
@@ -77,7 +75,6 @@ fn setup_data<'a>(
     scope: &'a osm_scope::OsmScope,
     epoch_size: usize,
     data_size: usize,
-    num_pe: usize,
 ) -> (Vec<ShVec<'a, u8>>, Vec<ShVec<'a, u8>>) {
     let mut source = Vec::with_capacity(epoch_size);
     let mut dest = Vec::with_capacity(epoch_size);
@@ -98,6 +95,7 @@ fn setup_data<'a>(
 
 fn print_config(config: &Config, scope: &OsmScope) {
     let pe = scope.my_pe();
+    let num_pe = scope.num_pes();
 
     let hostname = unsafe {
         let mut name = [0; 256];
@@ -113,7 +111,7 @@ fn print_config(config: &Config, scope: &OsmScope) {
     println!("  Epoch Size: {}", config.epoch_size);
     println!("  Size: {}", config.size);
     println!("  Epoch per iteration: {}", config.epoch_per_iteration);
-    println!("  Number of PEs: {}", config.num_pe);
+    println!("  Number of PEs: {}", num_pe);
     println!("  Duration: {:?}", config.duration);
     println!("  Operation: {}", config.operation.to_string());
 }
@@ -129,12 +127,12 @@ fn benchmark(cli: &Config) {
         None
     });
 
-    let running = OsmBox::new(AtomicBool::new(true), &scope);
+    let mut running = OsmBox::new(AtomicBool::new(true), &scope);
 
     let operation = cli.operation;
     let epoch_size = cli.epoch_size;
     let data_size = cli.size;
-    let num_pe = cli.num_pe;
+    let num_pe = scope.num_pes() as usize;
 
     let mut sources = Vec::with_capacity(num_pe);
     let mut dests = Vec::with_capacity(num_pe);
@@ -143,7 +141,6 @@ fn benchmark(cli: &Config) {
         let (source, dest) = setup_data()
             .data_size(data_size)
             .epoch_size(epoch_size)
-            .num_pe(cli.num_pe)
             .scope(&scope)
             .call();
 
@@ -161,7 +158,7 @@ fn benchmark(cli: &Config) {
         .operation(operation)
         .epoch_per_iteration(cli.epoch_per_iteration)
         .epoch_size(epoch_size)
-        .num_pe(cli.num_pe)
+        .num_pe(num_pe)
         .source(&mut sources[my_pe])
         .dest(&mut dests[target_pe])
         .call();
@@ -170,11 +167,15 @@ fn benchmark(cli: &Config) {
 
     // let only the main pe to stop others
     if scope.my_pe() == 0 {
-        unsafe {
-            shmem_char_p(running.as_ptr() as *mut i8, false as i8, 1);
+        // set the running flag to false
+        let source = OsmBox::new(AtomicBool::new(false), &scope);
+        for i in 1..num_pe as i32 {
+            source.put_to_nbi(&mut running, i);
+            // source.put_to(&mut running, 1);
         }
-        scope.barrier_all();
     }
+
+    scope.barrier_all();
     eprintln!("Final throughput: {:.2} messages/second", final_throughput);
 
     let mut throughputs = ShVec::with_capacity(num_pe, &scope);
@@ -186,13 +187,14 @@ fn benchmark(cli: &Config) {
     // only sync half the pe
     if my_pe < num_pe {
         println!("my thoughput address {:p}", my_throughput.deref());
-        my_throughput.broadcast_to(
-            &mut throughputs[my_pe],
-            unsafe { oshmem_team_world },
-            my_pe as i32,
-        );
+        for i in 0..num_pe {
+            if i != my_pe {
+                my_throughput.put_to_nbi(&mut throughputs[i], i as i32);
+            }
+        }
     }
 
+    // sync all the pe
     scope.barrier_all();
     if scope.my_pe() == 0 {
         println!("Throughput on all PEs:");
