@@ -48,6 +48,7 @@ struct Config {
 fn main() {
     let config = Config::parse();
     benchmark(&config);
+    println!("Finalizing OpenSHMEM Benchmark");
 }
 
 fn setup_exit_signal(timeout: Option<u64>, scope: &OsmScope) -> Arc<AtomicBool> {
