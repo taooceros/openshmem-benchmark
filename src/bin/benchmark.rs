@@ -28,11 +28,11 @@ impl ToString for Operation {
 #[derive(Parser)]
 #[command(version, about, long_about = None)]
 struct Config {
-    #[arg(short, long, default_value_t = 1)]
+    #[arg(long, default_value_t = 1)]
     epoch_size: usize,
     #[arg(short, long, default_value_t = 1)]
     size: usize,
-    #[arg(short, long, default_value_t = 1000000)]
+    #[arg(short = 'n', long, default_value_t = 1000000)]
     epoch_per_iteration: usize,
     #[arg(short='p', long, default_value_t = 1)]
     num_pe: usize,
