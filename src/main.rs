@@ -3,9 +3,14 @@ use std::ffi::c_void;
 
 use clap::Parser;
 use openshmem_sys::*;
-use shalloc::ShMalloc;
+use osm_alloc::OsmMalloc;
+use osm_vec::ShVec;
 
-mod shalloc;
+mod osm_vec;
+mod osm_box;
+mod osm_alloc;
+mod osm_wrapper;
+mod osm_slice;
 
 #[derive(clap::ValueEnum, Debug, Clone, Copy)]
 enum Operation {
@@ -51,8 +56,7 @@ fn main() {
 fn benchmark(cli: &Config) {
     unsafe {
         shmem_init();
-
-        let running = std::sync::Arc::new_in(std::sync::atomic::AtomicBool::new(true), ShMalloc);
+        let running = std::sync::Arc::new_in(std::sync::atomic::AtomicBool::new(true), OsmMalloc);
         let r1 = running.clone();
         let r2 = running.clone();
         ctrlc::set_handler(move || {
@@ -78,14 +82,14 @@ fn benchmark(cli: &Config) {
         let mut source = Vec::with_capacity(window_size);
         let mut dest = Vec::with_capacity(window_size);
 
-        let end = Box::new_in(true, ShMalloc);
+        let end = Box::new_in(true, OsmMalloc);
 
         for i in 0..window_size {
-            source.push(Vec::with_capacity_in(data_size, ShMalloc));
+            source.push(ShVec::with_capacity(data_size));
             for j in 0..data_size {
                 source[i].push((i * data_size + j) as u8);
             }
-            dest.push(Vec::with_capacity_in(data_size, ShMalloc));
+            dest.push(ShVec::with_capacity(data_size));
             for j in 0..data_size {
                 dest[i].push(0);
             }
@@ -102,25 +106,25 @@ fn benchmark(cli: &Config) {
                     for i in 0..window_size {
                         match operation {
                             Operation::Put => {
-                                shmem_putmem(
-                                    dest[i].as_mut_ptr() as *mut c_void,
-                                    source[i].as_ptr() as *const c_void,
-                                    data_size,
-                                    1,
-                                );
+                                source[i].put_to(&mut dest[i], 1);
                             }
                             Operation::Get => {
-                                shmem_getmem(
-                                    dest[i].as_mut_ptr() as *mut c_void,
-                                    source[i].as_ptr() as *const c_void,
-                                    data_size,
-                                    1,
-                                );
+                                source[i].get_from(&mut dest[i], 1);
                             }
                         }
                     }
                 }
                 shmem_barrier_all();
+
+                if shmem_my_pe() == 1 {
+                    dest.iter().for_each(|d| {
+                        d.iter().enumerate().for_each(|(index, &v)| {
+                            if v != index as u8 {
+                                panic!("Data mismatch at index {}: expected 0, got {}", index, v);
+                            }
+                        });
+                    });
+                }
             }
 
             let elapsed = now.elapsed();

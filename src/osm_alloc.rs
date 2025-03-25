@@ -1,19 +1,18 @@
 use std::{
-    alloc::{Allocator, GlobalAlloc},
-    ptr::NonNull,
+    alloc::{Allocator, GlobalAlloc}, backtrace::Backtrace, ptr::NonNull
 };
 
 use openshmem_sys::{shfree, shmalloc, shmemalign, shrealloc};
 
 #[derive(Clone)]
-pub struct ShMalloc;
+pub struct OsmMalloc;
 
-unsafe impl Allocator for ShMalloc {
+unsafe impl Allocator for OsmMalloc {
     fn allocate(
         &self,
         layout: std::alloc::Layout,
     ) -> Result<NonNull<[u8]>, std::alloc::AllocError> {
-        let ptr = unsafe { shmalloc(layout.size()) };
+        let ptr = unsafe { shmemalign(layout.align(), layout.size()) };
         if ptr.is_null() {
             return Err(std::alloc::AllocError);
         }
@@ -28,6 +27,7 @@ unsafe impl Allocator for ShMalloc {
     unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: std::alloc::Layout) {
         unsafe {
             shfree(ptr.as_ptr() as *mut std::ffi::c_void);
+            println!("{}", Backtrace::capture())
         }
     }
 
