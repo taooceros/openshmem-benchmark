@@ -349,6 +349,7 @@ dependencies = [
  "bon",
  "clap",
  "ctrlc",
+ "libc",
  "openshmem-sys",
 ]
 

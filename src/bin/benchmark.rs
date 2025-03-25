@@ -6,7 +6,8 @@ use std::sync::atomic::AtomicBool;
 
 use bon::builder;
 use clap::Parser;
-use openshmem_benchmark::osm_alloc::OsmMalloc;
+use libc::gethostname;
+use openshmem_benchmark::{osm_alloc::OsmMalloc, osm_scope::OsmScope};
 use openshmem_benchmark::osm_arc::OsmArc;
 use openshmem_benchmark::osm_scope;
 use openshmem_benchmark::osm_vec::ShVec;
@@ -46,16 +47,6 @@ struct Config {
 
 fn main() {
     let config = Config::parse();
-
-    // print config in format
-    println!("Configuration:");
-    println!("  Epoch Size: {}", config.epoch_size);
-    println!("  Size: {}", config.size);
-    println!("  Epoch per iteration: {}", config.epoch_per_iteration);
-    println!("  Number of PEs: {}", config.num_pe);
-    println!("  Duration: {:?}", config.duration);
-    println!("  Operation: {}", config.operation.to_string());
-
     benchmark(&config);
 }
 
@@ -103,8 +94,33 @@ fn setup_data<'a>(
     (source, dest)
 }
 
+fn print_config(config: &Config, scope: &OsmScope) {
+    let pe = scope.my_pe();
+
+    let hostname = unsafe {
+        let mut name = [0; 256];
+        let len = name.len();
+        gethostname(name.as_mut_ptr() as *mut _, len);
+        String::from_utf8_lossy(&name)
+            .trim_end_matches('\0')
+            .to_string()
+    };
+
+    // print config in format
+    println!("Configuration on {}:{pe}:", hostname);
+    println!("  Epoch Size: {}", config.epoch_size);
+    println!("  Size: {}", config.size);
+    println!("  Epoch per iteration: {}", config.epoch_per_iteration);
+    println!("  Number of PEs: {}", config.num_pe);
+    println!("  Duration: {:?}", config.duration);
+    println!("  Operation: {}", config.operation.to_string());
+}
+
 fn benchmark(cli: &Config) {
     let scope = osm_scope::OsmScope::init();
+
+    print_config(cli, &scope);
+    
 
     let local_running = setup_exit_signal(if scope.my_pe() == 0 {
         cli.duration
@@ -215,7 +231,10 @@ fn benchmark_loop<'a>(
 
         let total_messages = epoch_per_iteration * epoch_size;
         let throughput = total_messages as f64 / elapsed.as_secs_f64();
-        println!("Throughput on Machine {my_pe}: {:.2} messages/second", throughput);
+        println!(
+            "Throughput on Machine {my_pe}: {:.2} messages/second",
+            throughput
+        );
 
         final_throughput = throughput;
     }

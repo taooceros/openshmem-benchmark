@@ -14,7 +14,7 @@ def "main" [] {
 
 def "main test" [] {
     cargo build --release
-    execute 4 1024 10000
+    execute 4 1024 10000 4
 }
 
 def "main bench" [] {
