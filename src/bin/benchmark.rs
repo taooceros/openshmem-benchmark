@@ -122,7 +122,7 @@ fn benchmark(cli: &Config) {
     let mut sources = Vec::with_capacity(num_pe);
     let mut dests = Vec::with_capacity(num_pe);
 
-    for i in 0..num_pe {
+    for _ in 0..num_pe {
         let (source, dest) = setup_data()
             .data_size(data_size)
             .epoch_size(epoch_size)
@@ -134,8 +134,8 @@ fn benchmark(cli: &Config) {
         dests.push(dest);
     }
 
-    let my_pe = scope.my_pe() as usize;
-    let target_pe = my_pe + num_pe;
+    let my_pe = scope.my_pe() as usize % num_pe;
+    let target_pe = my_pe;
 
     let final_throughput = benchmark_loop()
         .scope(&scope)
