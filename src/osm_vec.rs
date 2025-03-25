@@ -1,14 +1,14 @@
 use std::ops::{Deref, DerefMut};
 
-use crate::{osm_alloc::OsmMalloc, osm_slice::OsmSlice};
+use crate::{osm_alloc::OsmMalloc, osm_scope::OsmScope, osm_slice::OsmSlice};
 
-pub struct ShVec<T> {
-    data: Vec<T, OsmMalloc>,
+pub struct ShVec<'a, T> {
+    data: Vec<T, OsmMalloc<'a>>,
 }
 
-impl<T> ShVec<T> {
-    pub fn new(size: usize) -> Self {
-        let data = Vec::with_capacity_in(size, OsmMalloc);
+impl<'a, T> ShVec<'a, T> {
+    pub fn new(size: usize, scope: &'a OsmScope) -> Self {
+        let data = Vec::with_capacity_in(size, OsmMalloc::new(scope));
         ShVec { data }
     }
 
@@ -20,13 +20,13 @@ impl<T> ShVec<T> {
         self.data.len()
     }
 
-    pub fn with_capacity(size: usize) -> Self {
-        let data = Vec::with_capacity_in(size, OsmMalloc);
+    pub fn with_capacity(size: usize, scope: &'a OsmScope) -> Self {
+        let data = Vec::with_capacity_in(size, OsmMalloc::new(scope));
         ShVec { data }
     }
 }
 
-impl<T> Deref for ShVec<T> {
+impl<'a, T> Deref for ShVec<'a, T> {
     type Target = OsmSlice<T>;
 
     fn deref(&self) -> &Self::Target {
@@ -38,7 +38,7 @@ impl<T> Deref for ShVec<T> {
     }
 }
 
-impl<T> DerefMut for ShVec<T> {
+impl<'a, T> DerefMut for ShVec<'a, T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         unsafe {
             let ptr = self.data.as_mut_ptr() as *mut T;

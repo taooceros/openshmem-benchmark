@@ -41,46 +41,46 @@ impl<T> DerefMut for OsmSlice<T> {
 }
 
 impl<T> OsmSlice<T> {
-    pub fn put_to(&self, other: &mut Self, pe: i32) {
+    pub fn put_to(&self, other: &mut Self, target_pe: i32) {
         unsafe {
             shmem_putmem(
                 other.as_mut_ptr().cast(),
                 self.as_ptr().cast(),
                 std::mem::size_of::<T>() * self.len(),
-                pe,
+                target_pe,
             );
         }
     }
 
-    pub fn put_to_nbi(&self, other: &mut Self, pe: i32) {
+    pub fn put_to_nbi(&self, other: &mut Self, target_pe: i32) {
         unsafe {
             shmem_putmem_nbi(
                 other.as_mut_ptr().cast(),
                 self.as_ptr().cast(),
                 std::mem::size_of::<T>() * self.len(),
-                pe,
+                target_pe,
             );
         }
     }
 
-    pub fn get_from(&mut self, other: &Self, pe: i32) {
+    pub fn get_from(&mut self, other: &Self, target_pe: i32) {
         unsafe {
             shmem_putmem(
                 self.as_mut_ptr().cast(),
                 other.as_ptr().cast(),
                 std::mem::size_of::<T>() * self.len(),
-                pe,
+                target_pe,
             );
         }
     }
 
-    pub fn get_from_nbi(&mut self, other: &Self, pe: i32) {
+    pub fn get_from_nbi(&mut self, other: &Self, target_pe: i32) {
         unsafe {
             shmem_putmem_nbi(
                 self.as_mut_ptr().cast(),
                 other.as_ptr().cast(),
                 std::mem::size_of::<T>() * self.len(),
-                pe,
+                target_pe,
             );
         }
     }

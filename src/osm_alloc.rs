@@ -1,13 +1,23 @@
 use std::{
-    alloc::{Allocator, GlobalAlloc}, backtrace::Backtrace, ptr::NonNull
+    alloc::{Allocator, GlobalAlloc}, backtrace::Backtrace, ptr::NonNull, sync::Arc
 };
 
 use openshmem_sys::{shfree, shmalloc, shmemalign, shrealloc};
 
-#[derive(Clone)]
-pub struct OsmMalloc;
+use crate::osm_scope::OsmScope;
 
-unsafe impl Allocator for OsmMalloc {
+#[derive(Clone)]
+pub struct OsmMalloc<'a> {
+    _marker: std::marker::PhantomData<&'a ()>,
+}
+
+impl<'a> OsmMalloc<'a> {
+    pub fn new(scope: &'a OsmScope) -> Self {
+        Self { _marker: std::marker::PhantomData }
+    }
+}
+
+unsafe impl Allocator for OsmMalloc<'_> {
     fn allocate(
         &self,
         layout: std::alloc::Layout,
