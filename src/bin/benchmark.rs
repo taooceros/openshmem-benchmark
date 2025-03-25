@@ -236,10 +236,10 @@ fn benchmark_loop<'a>(
                 for i in 0..epoch_size {
                     match operation {
                         Operation::Put => {
-                            source[i].put_to(&mut dest[i], 1);
+                            source[i].put_to(&mut dest[i], (my_pe + num_concurrency) as i32);
                         }
                         Operation::Get => {
-                            dest[i].get_from(&mut source[i], 1);
+                            dest[i].get_from(&mut source[i], (my_pe + num_concurrency) as i32);
                         }
                     }
                 }
