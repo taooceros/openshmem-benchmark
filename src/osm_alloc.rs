@@ -27,7 +27,6 @@ unsafe impl Allocator for OsmMalloc {
     unsafe fn deallocate(&self, ptr: NonNull<u8>, layout: std::alloc::Layout) {
         unsafe {
             shfree(ptr.as_ptr() as *mut std::ffi::c_void);
-            println!("{}", Backtrace::capture())
         }
     }
 
