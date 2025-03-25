@@ -190,11 +190,7 @@ fn benchmark(cli: &Config) {
             my_throughput.deref(),
             my_throughput.deref()
         );
-        for i in 0..num_concurrency {
-            if i != my_pe {
-                my_throughput.put_to_nbi(&mut throughputs[i], i as i32);
-            }
-        }
+        my_throughput.put_to_nbi(&mut throughputs[my_pe], 0);
     }
 
     // sync all the pe
