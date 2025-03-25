@@ -132,6 +132,7 @@ fn benchmark(cli: &Config) {
     let data_size = cli.size;
 
     let num_pe = scope.num_pes();
+    assert!(num_pe % 2 == 0, "Number of PEs must be even");
     let num_concurrency = (num_pe / 2) as usize;
 
     let mut sources = Vec::with_capacity(num_concurrency);
