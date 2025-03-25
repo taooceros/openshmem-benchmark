@@ -225,11 +225,15 @@ fn benchmark_loop<'a>(
     let mut final_throughput = 0.0;
     let my_pe = scope.my_pe() as usize;
 
-    while running.load(std::sync::atomic::Ordering::Relaxed)
+    'outer: while running.load(std::sync::atomic::Ordering::Relaxed)
         && local_running.load(std::sync::atomic::Ordering::Relaxed)
     {
         let now = std::time::Instant::now();
         for _ in 0..epoch_per_iteration {
+            if !running.load(std::sync::atomic::Ordering::Relaxed)
+            {
+                break 'outer;
+            }
             if my_pe < num_pe {
                 for i in 0..epoch_size {
                     match operation {
