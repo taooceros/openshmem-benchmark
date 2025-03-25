@@ -11,6 +11,12 @@ pub struct OsmWrapper<T> {
     data: T,
 }
 
+impl<T: PartialEq> PartialEq for OsmWrapper<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.data == other.data
+    }
+}
+
 impl<T> Deref for OsmWrapper<T> {
     type Target = T;
 

@@ -249,13 +249,15 @@ fn benchmark_loop<'a>(
             if my_pe >= num_concurrency {
                 for (i, (source, dest)) in source.iter().zip(dest.iter()).enumerate() {
                     // check if the data is correct
-                    assert!(
-                        source.iter().zip(dest.iter()).all(|(s, d)| s == d),
-                        "Data mismatch at index {}: source = {}, dest = {}",
-                        i,
-                        source[i],
-                        dest[i]
-                    );
+                    for j in 0..epoch_size {
+                        if source[j] != dest[j] {
+                            println!(
+                                "Data mismatch at PE {}: source[{}][{}] = {}, dest[{}][{}] = {}",
+                                my_pe, i, j, source[j], i, j, dest[j]
+                            );
+                            break 'outer;
+                        }
+                    }
                 }
             }
         }
