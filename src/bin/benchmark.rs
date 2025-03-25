@@ -129,7 +129,7 @@ fn benchmark(cli: &Config) {
         None
     });
 
-    let running = OsmArc::new(AtomicBool::new(true), &scope);
+    let running = OsmBox::new(AtomicBool::new(true), &scope);
 
     let operation = cli.operation;
     let epoch_size = cli.epoch_size;
@@ -185,6 +185,7 @@ fn benchmark(cli: &Config) {
 
     // only sync half the pe
     if my_pe < num_pe {
+        println!("my thoughput address {:p}", my_throughput.deref());
         my_throughput.broadcast_to(
             &mut throughputs[my_pe],
             unsafe { oshmem_team_world },
@@ -207,7 +208,7 @@ fn benchmark(cli: &Config) {
 fn benchmark_loop<'a>(
     scope: &osm_scope::OsmScope,
     local_running: Arc<AtomicBool>,
-    running: &OsmArc<'a, AtomicBool>,
+    running: &OsmBox<'a, AtomicBool>,
     operation: Operation,
     epoch_per_iteration: usize,
     epoch_size: usize,
@@ -255,10 +256,10 @@ fn benchmark_loop<'a>(
 
         let total_messages = epoch_per_iteration * epoch_size;
         let throughput = total_messages as f64 / elapsed.as_secs_f64();
-        println!(
-            "Throughput on Machine {my_pe}: {:.2} messages/second",
-            throughput
-        );
+        // println!(
+        //     "Throughput on Machine {my_pe}: {:.2} messages/second",
+        //     throughput
+        // );
 
         final_throughput = throughput;
     }
