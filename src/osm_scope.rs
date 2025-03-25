@@ -11,7 +11,7 @@ impl OsmScope {
 
 impl Drop for OsmScope {
     fn drop(&mut self) {
-        unsafe { shmem_finalize() };
+        // unsafe { shmem_finalize() };
     }
 }
 
