@@ -156,7 +156,6 @@ fn benchmark(cli: &Config) {
         .operation(operation)
         .epoch_per_iteration(cli.epoch_per_iteration)
         .epoch_size(epoch_size)
-        .num_pe(num_concurrency)
         .source(&mut sources[my_pe])
         .dest(&mut dests[target_pe])
         .call();
@@ -185,7 +184,12 @@ fn benchmark(cli: &Config) {
 
     // only sync half the pe
     if my_pe < num_concurrency {
-        println!("pe {}: my thoughput address {:p} with value {}", my_pe, my_throughput.deref(), my_throughput.deref());
+        println!(
+            "pe {}: my thoughput address {:p} with value {}",
+            my_pe,
+            my_throughput.deref(),
+            my_throughput.deref()
+        );
         for i in 0..num_concurrency {
             if i != my_pe {
                 my_throughput.put_to_nbi(&mut throughputs[i], i as i32);
@@ -213,12 +217,12 @@ fn benchmark_loop<'a>(
     operation: Operation,
     epoch_per_iteration: usize,
     epoch_size: usize,
-    num_pe: usize,
     source: &mut Vec<ShVec<'a, u8>>,
     dest: &mut Vec<ShVec<'a, u8>>,
 ) -> f64 {
     let mut final_throughput = 0.0;
     let my_pe = scope.my_pe() as usize;
+    let num_concurrency = (scope.num_pes() / 2) as usize;
 
     'outer: while running.load(std::sync::atomic::Ordering::Relaxed)
         && local_running.load(std::sync::atomic::Ordering::Relaxed)
@@ -228,7 +232,7 @@ fn benchmark_loop<'a>(
             if !running.load(std::sync::atomic::Ordering::Relaxed) {
                 break 'outer;
             }
-            if my_pe < num_pe {
+            if my_pe < num_concurrency {
                 for i in 0..epoch_size {
                     match operation {
                         Operation::Put => {
@@ -242,7 +246,7 @@ fn benchmark_loop<'a>(
             }
             scope.barrier_all();
 
-            if scope.my_pe() == 1 {
+            if my_pe >= num_concurrency {
                 for (i, (source, dest)) in source.iter().zip(dest.iter()).enumerate() {
                     // check if the data is correct
                     assert!(
