@@ -184,14 +184,10 @@ fn benchmark(cli: &Config) {
 
     // only sync half the pe
     if my_pe < num_concurrency {
-        println!(
-            "pe {}: my thoughput address {:p} with value {}",
-            my_pe,
-            my_throughput.deref(),
-            my_throughput.deref()
-        );
         my_throughput.put_to_nbi(&mut throughputs[my_pe], 0);
     }
+
+    println!("pe {}: waiting for others", scope.my_pe());
 
     // sync all the pe
     scope.barrier_all();
