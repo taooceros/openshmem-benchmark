@@ -210,8 +210,15 @@ fn benchmark_loop<'a>(
     let num_pe = scope.num_pes() as usize;
     let num_concurrency = (num_pe / 2) as usize;
 
-    while running.load(std::sync::atomic::Ordering::Relaxed)
-    {
+    let false_signal = OsmBox::new(AtomicBool::new(false), &scope);
+
+    loop {
+        scope.barrier_all();
+
+        if !running.load(std::sync::atomic::Ordering::SeqCst) {
+            break;
+        }
+        // while running.load(std::sync::atomic::Ordering::SeqCst) {
         let now = std::time::Instant::now();
         for _ in 0..epoch_per_iteration {
             if my_pe < num_concurrency {
@@ -229,7 +236,7 @@ fn benchmark_loop<'a>(
             scope.barrier_all();
 
             if my_pe >= num_concurrency {
-                for (i, (source, dest)) in source.iter().zip(dest.iter()).enumerate() {
+                for (source, dest) in source.iter().zip(dest.iter()) {
                     // check if the data is correct
                     // eprintln!("source {:?}, dest {:?}", source, dest);
                     for (j, (left, right)) in source.iter().zip(dest.iter()).enumerate() {
@@ -256,16 +263,13 @@ fn benchmark_loop<'a>(
         final_throughput = throughput;
 
         // let only the main pe to stop others
-        if !local_running.load(std::sync::atomic::Ordering::Relaxed) && scope.my_pe() == 0 {
+        if !local_running.load(std::sync::atomic::Ordering::Relaxed) && my_pe == 0 {
             // set the running flag to false
-            let source = OsmBox::new(AtomicBool::new(false), &scope);
-            println!("pe {}: stopping others", scope.my_pe());
             for i in 0..num_pe as i32 {
-                source.put_to_nbi(running, i);
+                println!("pe {}: stopping pe {}", scope.my_pe(), i);
+                false_signal.put_to_nbi(running, i);
             }
         }
-
-        scope.barrier_all();
     }
 
     final_throughput

@@ -9,7 +9,6 @@ impl OsmScope {
     }
 }
 
-static BARRIER_COUNT: std::sync::atomic::AtomicUsize = std::sync::atomic::AtomicUsize::new(0);
 impl Drop for OsmScope {
     fn drop(&mut self) {
         let barrier_count = BARRIER_COUNT.load(std::sync::atomic::Ordering::Relaxed);
@@ -37,5 +36,9 @@ impl OsmScope {
 
     pub fn num_pes(&self) -> i32 {
         unsafe { shmem_n_pes() }
+    }
+
+    pub fn quiet(&self) {
+        unsafe { shmem_quiet() }
     }
 }
