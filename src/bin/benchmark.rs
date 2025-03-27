@@ -1,6 +1,6 @@
 #![feature(allocator_api)]
 
-use core::{num, random};
+use core::{num};
 use std::ops::Deref;
 use std::process::exit;
 use std::sync::Arc;
