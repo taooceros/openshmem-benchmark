@@ -11,8 +11,6 @@ impl OsmScope {
 
 impl Drop for OsmScope {
     fn drop(&mut self) {
-        let barrier_count = BARRIER_COUNT.load(std::sync::atomic::Ordering::Relaxed);
-        println!("PE {}: barrier count {}", self.my_pe(), barrier_count);
         println!("Finalizing OpenSHMEM for pe {}", self.my_pe());
 
         unsafe { shmem_finalize() };
