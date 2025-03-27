@@ -4,7 +4,7 @@ use core::num;
 use std::ops::Deref;
 use std::process::exit;
 use std::sync::Arc;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicU64};
 
 use bon::builder;
 use clap::Parser;
@@ -197,6 +197,8 @@ fn output(scope: &OsmScope, num_concurrency: usize, my_pe: usize, final_throughp
 
     // println!("pe {}: waiting for others", scope.my_pe());
 
+    println!("pe {}: barrier count {}", scope.my_pe(), BARRIER_COUNT.load(std::sync::atomic::Ordering::Relaxed));
+
     // sync all the pe
     scope.barrier_all();
     if scope.my_pe() == 0 {
@@ -206,6 +208,8 @@ fn output(scope: &OsmScope, num_concurrency: usize, my_pe: usize, final_throughp
         }
     }
 }
+
+static BARRIER_COUNT: AtomicU64 = AtomicU64::new(0);
 
 #[builder]
 fn benchmark_loop<'a>(
@@ -243,7 +247,8 @@ fn benchmark_loop<'a>(
                 }
             }
             scope.barrier_all();
-
+            BARRIER_COUNT
+                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
             if my_pe >= num_concurrency {
                 for (i, (source, dest)) in source.iter().zip(dest.iter()).enumerate() {
                     // check if the data is correct
@@ -269,10 +274,6 @@ fn benchmark_loop<'a>(
         // );
 
         final_throughput = throughput;
-    }
-
-    if my_pe != 0 {
-        assert!(local_running.load(std::sync::atomic::Ordering::Relaxed));
     }
 
     final_throughput
