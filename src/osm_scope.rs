@@ -28,7 +28,6 @@ impl OsmScope {
     }
 
     pub fn barrier_all(&self) {
-        BARRIER_COUNT.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
         unsafe { shmem_barrier_all() };
     }
 
