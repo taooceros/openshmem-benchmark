@@ -247,7 +247,7 @@ fn benchmark_loop<'a>(
             if my_pe >= num_concurrency {
                 for (i, (source, dest)) in source.iter().zip(dest.iter()).enumerate() {
                     // check if the data is correct
-                    eprintln!("source {:?}, dest {:?}", source, dest);
+                    // eprintln!("source {:?}, dest {:?}", source, dest);
                     for (j, (left, right)) in source.iter().zip(dest.iter()).enumerate() {
                         if left != right {
                             eprintln!("Data mismatch at index {}: source {:?} dest {:?}", j, left, right);
