@@ -156,7 +156,7 @@ fn benchmark(cli: &Config) {
     let final_throughput = benchmark_loop()
         .scope(&scope)
         .local_running(local_running.clone())
-        .running(&running)
+        .running(&mut running)
         .operation(operation)
         .epoch_per_iteration(cli.epoch_per_iteration)
         .epoch_size(epoch_size)
@@ -165,18 +165,6 @@ fn benchmark(cli: &Config) {
         .call();
 
     println!("pe {}: stopping benchmark", scope.my_pe());
-
-    // let only the main pe to stop others
-    if scope.my_pe() == 0 {
-        // set the running flag to false
-        let source = OsmBox::new(AtomicBool::new(false), &scope);
-        println!("pe {}: stopping others", scope.my_pe());
-        for i in 1..num_pe as i32 {
-            source.put_to_nbi(&mut running, i);
-        }
-
-        // scope.barrier_all(); // not clear why we don't need a barrier here
-    }
 
     output(&scope, num_concurrency, my_pe, final_throughput);
 }
@@ -210,7 +198,7 @@ fn output(scope: &OsmScope, num_concurrency: usize, my_pe: usize, final_throughp
 fn benchmark_loop<'a>(
     scope: &osm_scope::OsmScope,
     local_running: Arc<AtomicBool>,
-    running: &OsmBox<'a, AtomicBool>,
+    running: &mut OsmBox<'a, AtomicBool>,
     operation: Operation,
     epoch_per_iteration: usize,
     epoch_size: usize,
@@ -219,14 +207,13 @@ fn benchmark_loop<'a>(
 ) -> f64 {
     let mut final_throughput = 0.0;
     let my_pe = scope.my_pe() as usize;
-    let num_concurrency = (scope.num_pes() / 2) as usize;
+    let num_pe = scope.num_pes() as usize;
+    let num_concurrency = (num_pe / 2) as usize;
 
     'outer: while running.load(std::sync::atomic::Ordering::Relaxed)
-        && local_running.load(std::sync::atomic::Ordering::Relaxed)
     {
         let now = std::time::Instant::now();
         for _ in 0..epoch_per_iteration {
-            
             if my_pe < num_concurrency {
                 for i in 0..epoch_size {
                     match operation {
@@ -240,9 +227,6 @@ fn benchmark_loop<'a>(
                 }
             }
             scope.barrier_all();
-            if !running.load(std::sync::atomic::Ordering::Relaxed) {
-                break 'outer;
-            }
 
             if my_pe >= num_concurrency {
                 for (i, (source, dest)) in source.iter().zip(dest.iter()).enumerate() {
@@ -250,7 +234,10 @@ fn benchmark_loop<'a>(
                     // eprintln!("source {:?}, dest {:?}", source, dest);
                     for (j, (left, right)) in source.iter().zip(dest.iter()).enumerate() {
                         if left != right {
-                            eprintln!("Data mismatch at index {}: source {:?} dest {:?}", j, left, right);
+                            eprintln!(
+                                "Data mismatch at index {}: source {:?} dest {:?}",
+                                j, left, right
+                            );
                             exit(1);
                         }
                     }
@@ -268,6 +255,18 @@ fn benchmark_loop<'a>(
         // );
 
         final_throughput = throughput;
+
+        // let only the main pe to stop others
+        if !local_running.load(std::sync::atomic::Ordering::Relaxed) && scope.my_pe() == 0 {
+            // set the running flag to false
+            let source = OsmBox::new(AtomicBool::new(false), &scope);
+            println!("pe {}: stopping others", scope.my_pe());
+            for i in 0..num_pe as i32 {
+                source.put_to_nbi(running, i);
+            }
+        }
+
+        scope.barrier_all(); // not clear why we don't need a barrier here
     }
 
     final_throughput
