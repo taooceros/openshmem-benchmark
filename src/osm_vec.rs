@@ -2,6 +2,7 @@ use std::ops::{Deref, DerefMut};
 
 use crate::{osm_alloc::OsmMalloc, osm_scope::OsmScope, osm_slice::OsmSlice};
 
+#[derive(Debug)]
 pub struct ShVec<'a, T> {
     data: Vec<T, OsmMalloc<'a>>,
 }

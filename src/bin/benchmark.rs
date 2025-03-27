@@ -175,7 +175,8 @@ fn benchmark(cli: &Config) {
             source.put_to_nbi(&mut running, i);
         }
         
-        scope.barrier_all(); // not clear why we don't need a barrier here
+        // scope.barrier_all(); // not clear why we don't need a barrier here
+        // scope.barrier_all(); // not clear why we don't need a barrier here
     }
 
     output(&scope, num_concurrency, my_pe, final_throughput);
@@ -247,6 +248,7 @@ fn benchmark_loop<'a>(
             if my_pe >= num_concurrency {
                 for (i, (source, dest)) in source.iter().zip(dest.iter()).enumerate() {
                     // check if the data is correct
+                    eprintln!("source {:?}, dest {:?}", source, dest);
                     for j in 0..epoch_size {
                         if source[j] != dest[j] {
                             panic!(
