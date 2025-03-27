@@ -1,6 +1,6 @@
 #![feature(allocator_api)]
 
-use core::{num};
+use core::num;
 use std::ops::Deref;
 use std::process::exit;
 use std::sync::Arc;
@@ -174,7 +174,7 @@ fn benchmark(cli: &Config) {
         for i in 1..num_pe as i32 {
             source.put_to_nbi(&mut running, i);
         }
-        
+
         // scope.barrier_all(); // not clear why we don't need a barrier here
         // scope.barrier_all(); // not clear why we don't need a barrier here
     }
@@ -206,7 +206,6 @@ fn output(scope: &OsmScope, num_concurrency: usize, my_pe: usize, final_throughp
         }
     }
 }
-
 
 #[builder]
 fn benchmark_loop<'a>(
@@ -244,17 +243,15 @@ fn benchmark_loop<'a>(
                 }
             }
             scope.barrier_all();
-            
+
             if my_pe >= num_concurrency {
                 for (i, (source, dest)) in source.iter().zip(dest.iter()).enumerate() {
                     // check if the data is correct
                     eprintln!("source {:?}, dest {:?}", source, dest);
-                    for j in 0..epoch_size {
-                        if source[j] != dest[j] {
-                            panic!(
-                                "Data mismatch at PE {}: source[{}][{}] = {}, dest[{}][{}] = {}",
-                                my_pe, i, j, source[j], i, j, dest[j]
-                            );
+                    for (j, (left, right)) in source.iter().zip(dest.iter()).enumerate() {
+                        if left != right {
+                            eprintln!("Data mismatch at index {}: source {:?} dest {:?}", j, left, right);
+                            exit(1);
                         }
                     }
                 }
