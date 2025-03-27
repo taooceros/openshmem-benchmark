@@ -86,7 +86,7 @@ fn setup_data<'a>(
         let mut source_entry = ShVec::with_capacity(data_size, scope);
         let mut dest_entry = ShVec::with_capacity(data_size, scope);
         for j in 0..data_size {
-            source_entry.push(rand::random());
+            source_entry.push(((i * data_size) + j + 5) as u8);
         }
         dest_entry.resize_with(data_size, || 0);
         source.push(source_entry);
