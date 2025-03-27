@@ -210,7 +210,7 @@ fn benchmark_loop<'a>(
     let num_pe = scope.num_pes() as usize;
     let num_concurrency = (num_pe / 2) as usize;
 
-    'outer: while running.load(std::sync::atomic::Ordering::Relaxed)
+    while running.load(std::sync::atomic::Ordering::Relaxed)
     {
         let now = std::time::Instant::now();
         for _ in 0..epoch_per_iteration {
@@ -234,11 +234,10 @@ fn benchmark_loop<'a>(
                     // eprintln!("source {:?}, dest {:?}", source, dest);
                     for (j, (left, right)) in source.iter().zip(dest.iter()).enumerate() {
                         if left != right {
-                            eprintln!(
+                            panic!(
                                 "Data mismatch at index {}: source {:?} dest {:?}",
                                 j, left, right
                             );
-                            exit(1);
                         }
                     }
                 }
@@ -266,7 +265,7 @@ fn benchmark_loop<'a>(
             }
         }
 
-        scope.barrier_all(); // not clear why we don't need a barrier here
+        scope.barrier_all();
     }
 
     final_throughput
