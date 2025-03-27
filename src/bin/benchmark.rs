@@ -174,7 +174,7 @@ fn benchmark(cli: &Config) {
         for i in 1..num_pe as i32 {
             source.put_to_nbi(&mut running, i);
         }
-
+        
         scope.barrier_all(); // not clear why we don't need a barrier here
     }
 
@@ -196,9 +196,6 @@ fn output(scope: &OsmScope, num_concurrency: usize, my_pe: usize, final_throughp
     }
 
     // println!("pe {}: waiting for others", scope.my_pe());
-
-    println!("pe {}: barrier count {}", scope.my_pe(), BARRIER_COUNT.load(std::sync::atomic::Ordering::Relaxed));
-
     // sync all the pe
     scope.barrier_all();
     if scope.my_pe() == 0 {
@@ -209,7 +206,6 @@ fn output(scope: &OsmScope, num_concurrency: usize, my_pe: usize, final_throughp
     }
 }
 
-static BARRIER_COUNT: AtomicU64 = AtomicU64::new(0);
 
 #[builder]
 fn benchmark_loop<'a>(
@@ -247,8 +243,7 @@ fn benchmark_loop<'a>(
                 }
             }
             scope.barrier_all();
-            BARRIER_COUNT
-                .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            
             if my_pe >= num_concurrency {
                 for (i, (source, dest)) in source.iter().zip(dest.iter()).enumerate() {
                     // check if the data is correct
