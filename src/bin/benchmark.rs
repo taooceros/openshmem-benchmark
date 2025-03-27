@@ -176,7 +176,6 @@ fn benchmark(cli: &Config) {
         }
 
         // scope.barrier_all(); // not clear why we don't need a barrier here
-        // scope.barrier_all(); // not clear why we don't need a barrier here
     }
 
     output(&scope, num_concurrency, my_pe, final_throughput);
@@ -227,9 +226,7 @@ fn benchmark_loop<'a>(
     {
         let now = std::time::Instant::now();
         for _ in 0..epoch_per_iteration {
-            if !running.load(std::sync::atomic::Ordering::Relaxed) {
-                break 'outer;
-            }
+            
             if my_pe < num_concurrency {
                 for i in 0..epoch_size {
                     match operation {
@@ -243,6 +240,9 @@ fn benchmark_loop<'a>(
                 }
             }
             scope.barrier_all();
+            if !running.load(std::sync::atomic::Ordering::Relaxed) {
+                break 'outer;
+            }
 
             if my_pe >= num_concurrency {
                 for (i, (source, dest)) in source.iter().zip(dest.iter()).enumerate() {
