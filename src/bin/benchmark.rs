@@ -201,7 +201,7 @@ fn output(scope: &OsmScope, num_concurrency: usize, my_pe: usize, final_throughp
     if scope.my_pe() == 0 {
         println!("Throughput on all PEs:");
         for i in 0..num_concurrency {
-            println!("PE {}: {:.2} messages/second", i, throughputs[i].deref());
+            eprintln!("PE {}: {:.2} messages/second", i, throughputs[i].deref());
         }
     }
 }
