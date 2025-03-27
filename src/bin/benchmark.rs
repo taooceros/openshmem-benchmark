@@ -2,6 +2,7 @@
 
 use core::num;
 use std::ops::Deref;
+use std::process::exit;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 
@@ -174,7 +175,7 @@ fn benchmark(cli: &Config) {
             source.put_to_nbi(&mut running, i);
         }
 
-        // scope.barrier_all(); // not clear why we don't need a barrier here
+        scope.barrier_all(); // not clear why we don't need a barrier here
     }
 
     output(&scope, num_concurrency, my_pe, final_throughput);
@@ -248,11 +249,10 @@ fn benchmark_loop<'a>(
                     // check if the data is correct
                     for j in 0..epoch_size {
                         if source[j] != dest[j] {
-                            println!(
+                            panic!(
                                 "Data mismatch at PE {}: source[{}][{}] = {}, dest[{}][{}] = {}",
                                 my_pe, i, j, source[j], i, j, dest[j]
                             );
-                            break 'outer;
                         }
                     }
                 }
@@ -269,6 +269,10 @@ fn benchmark_loop<'a>(
         // );
 
         final_throughput = throughput;
+    }
+
+    if my_pe != 0 {
+        assert!(local_running.load(std::sync::atomic::Ordering::Relaxed));
     }
 
     final_throughput
