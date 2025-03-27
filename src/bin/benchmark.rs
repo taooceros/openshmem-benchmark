@@ -1,6 +1,6 @@
 #![feature(allocator_api)]
 
-use core::num;
+use core::{num, random};
 use std::ops::Deref;
 use std::process::exit;
 use std::sync::Arc;
@@ -86,7 +86,7 @@ fn setup_data<'a>(
         let mut source_entry = ShVec::with_capacity(data_size, scope);
         let mut dest_entry = ShVec::with_capacity(data_size, scope);
         for j in 0..data_size {
-            source_entry.push((i * data_size + j) as u8);
+            source_entry.push(rand::random());
         }
         dest_entry.resize_with(data_size, || 0);
         source.push(source_entry);

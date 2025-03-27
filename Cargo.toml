@@ -9,3 +9,4 @@ clap = { version = "4.5.32", features = ["derive"] }
 ctrlc = "3.4.5"
 libc = "0.2.171"
 openshmem-sys = { git = "https://github.com/taooceros/openshmem-sys.git" }
+rand = "0.9.0"
