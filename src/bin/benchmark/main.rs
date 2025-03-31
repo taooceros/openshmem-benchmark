@@ -133,11 +133,11 @@ fn benchmark(cli: &Config) {
             .num_working_set(cli.num_working_set)
             .call()
     })
-    .take(num_concurrency)
+    .take(1)
     .collect::<Vec<_>>();
 
     let my_pe = scope.my_pe() as usize % num_concurrency;
-    let target_pe = my_pe;
+    let target_pe = 0;
 
     let final_throughput = benchmark_loop()
         .scope(&scope)
