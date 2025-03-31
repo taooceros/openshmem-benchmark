@@ -1,7 +1,8 @@
 #![feature(allocator_api)]
 
 use core::num;
-use std::ops::Deref;
+use std::iter::repeat_with;
+use std::ops::{Deref, DerefMut, Index, IndexMut};
 use std::process::exit;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64};
@@ -15,6 +16,10 @@ use openshmem_benchmark::osm_scope;
 use openshmem_benchmark::osm_vec::ShVec;
 use openshmem_benchmark::{osm_alloc::OsmMalloc, osm_scope::OsmScope};
 use openshmem_sys::{my_pe, oshmem_team_world, shmem_char_p};
+
+mod layout;
+
+use layout::BenchmarkData;
 
 #[derive(clap::ValueEnum, Debug, Clone, Copy)]
 enum Operation {
@@ -48,6 +53,8 @@ struct Config {
     duration: Option<u64>,
     #[arg(short, long, default_value_t = Operation::Put)]
     operation: Operation,
+    #[arg(short = 'w', long, default_value_t = 4)]
+    num_working_set: usize,
 }
 
 fn main() {
@@ -77,29 +84,6 @@ fn setup_exit_signal(timeout: Option<u64>, scope: &OsmScope) -> Arc<AtomicBool> 
     return local_running;
 }
 
-#[builder]
-fn setup_data<'a>(
-    scope: &'a osm_scope::OsmScope,
-    epoch_size: usize,
-    data_size: usize,
-) -> (Vec<ShVec<'a, u8>>, Vec<ShVec<'a, u8>>) {
-    let mut source = Vec::with_capacity(epoch_size);
-    let mut dest = Vec::with_capacity(epoch_size);
-
-    for i in 0..epoch_size {
-        let mut source_entry = ShVec::with_capacity(data_size, scope);
-        let mut dest_entry = ShVec::with_capacity(data_size, scope);
-        for j in 0..data_size {
-            source_entry.push(((i * data_size) + j + 5) as u8);
-        }
-        dest_entry.resize_with(data_size, || 0);
-        source.push(source_entry);
-        dest.push(dest_entry);
-    }
-
-    (source, dest)
-}
-
 fn print_config(config: &Config, scope: &OsmScope) {
     let pe = scope.my_pe();
     let num_pe = scope.num_pes();
@@ -121,6 +105,7 @@ fn print_config(config: &Config, scope: &OsmScope) {
     println!("  Number of PEs: {}", num_pe);
     println!("  Duration: {:?}", config.duration);
     println!("  Operation: {}", config.operation.to_string());
+    println!("  Number of Working Set: {}", config.num_working_set);
 }
 
 fn benchmark(cli: &Config) {
@@ -140,19 +125,16 @@ fn benchmark(cli: &Config) {
     assert!(num_pe % 2 == 0, "Number of PEs must be even");
     let num_concurrency = (num_pe / 2) as usize;
 
-    let mut sources = Vec::with_capacity(num_concurrency);
-    let mut dests = Vec::with_capacity(num_concurrency);
-
-    for _ in 0..num_concurrency {
-        let (source, dest) = setup_data()
+    let mut datas = repeat_with(|| {
+        BenchmarkData::setup_data()
             .data_size(data_size)
             .epoch_size(epoch_size)
             .scope(&scope)
-            .call();
-
-        sources.push(source);
-        dests.push(dest);
-    }
+            .num_working_set(cli.num_working_set)
+            .call()
+    })
+    .take(num_concurrency)
+    .collect::<Vec<_>>();
 
     let my_pe = scope.my_pe() as usize % num_concurrency;
     let target_pe = my_pe;
@@ -163,9 +145,7 @@ fn benchmark(cli: &Config) {
         .running(&mut running)
         .operation(operation)
         .epoch_per_iteration(cli.epoch_per_iteration)
-        .epoch_size(epoch_size)
-        .source(&mut sources[my_pe])
-        .dest(&mut dests[target_pe])
+        .data(&mut datas[target_pe])
         .call();
 
     println!("pe {}: stopping benchmark", scope.my_pe());
@@ -205,14 +185,17 @@ fn benchmark_loop<'a>(
     running: &mut OsmBox<'a, AtomicBool>,
     operation: Operation,
     epoch_per_iteration: usize,
-    epoch_size: usize,
-    source: &mut Vec<ShVec<'a, u8>>,
-    dest: &mut Vec<ShVec<'a, u8>>,
+    data: &mut BenchmarkData<'a>,
 ) -> f64 {
     let mut final_throughput = 0.0;
     let my_pe = scope.my_pe() as usize;
     let num_pe = scope.num_pes() as usize;
     let num_concurrency = (num_pe / 2) as usize;
+
+    let epoch_size = data.epoch_size();
+    const PRIME: usize = 1_000_000_007;
+    let mut seed = 0;
+    let num_working_set = data.num_working_set();
 
     let false_signal = OsmBox::new(AtomicBool::new(false), &scope);
 
@@ -225,22 +208,28 @@ fn benchmark_loop<'a>(
         // while running.load(std::sync::atomic::Ordering::SeqCst) {
         let now = std::time::Instant::now();
         for _ in 0..epoch_per_iteration {
+            seed = (1 + seed * 7) % PRIME;
+            let i = seed % num_working_set;
+
+            let source = &mut data.src_working_set[i];
+            let dest = &mut data.dst_working_set[i];
+
             if my_pe < num_concurrency {
-                for i in 0..epoch_size {
+                for (src, dst) in source.iter_mut().zip(dest.iter_mut()) {
                     match operation {
                         Operation::Put => {
-                            source[i].put_to(&mut dest[i], (my_pe + num_concurrency) as i32);
+                            src.put_to(dst, (my_pe + num_concurrency) as i32);
                         }
                         Operation::Get => {
-                            dest[i].get_from(&source[i], (my_pe + num_concurrency) as i32);
+                            dst.get_from(src, (my_pe + num_concurrency) as i32);
                         }
                         Operation::PutNonBlocking => {
-                            source[i].put_to_nbi(&mut dest[i], (my_pe + num_concurrency) as i32);
+                            src.put_to_nbi(dst, (my_pe + num_concurrency) as i32);
                         }
                         Operation::GetNonBlocking => {
-                            dest[i].get_from_nbi(&source[i], (my_pe + num_concurrency) as i32);
+                            dst.get_from_nbi(src, (my_pe + num_concurrency) as i32);
                         }
-                    }
+                    };
                 }
             }
             scope.barrier_all();
