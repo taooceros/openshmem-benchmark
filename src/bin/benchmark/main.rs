@@ -133,7 +133,7 @@ fn benchmark(cli: &Config) {
             .num_working_set(cli.num_working_set)
             .call()
     })
-    .take(1)
+    .take(num_concurrency)
     .collect::<Vec<_>>();
 
     let my_pe = scope.my_pe() as usize % num_concurrency;
@@ -145,7 +145,7 @@ fn benchmark(cli: &Config) {
         .running(&mut running)
         .operation(operation)
         .epoch_per_iteration(cli.epoch_per_iteration)
-        .data(&mut datas[0])
+        .data(&mut datas[target_pe])
         .call();
 
     println!("pe {}: stopping benchmark", scope.my_pe());
