@@ -207,7 +207,7 @@ fn benchmark_loop<'a>(
         }
         // while running.load(std::sync::atomic::Ordering::SeqCst) {
         let now = std::time::Instant::now();
-        for _ in 0..epoch_per_iteration {
+        for _ in 0..(epoch_per_iteration / num_concurrency) {
             seed = (1 + seed * 7) % PRIME;
             let i = seed % num_working_set;
 
