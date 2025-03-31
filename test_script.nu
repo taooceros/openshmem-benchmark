@@ -2,7 +2,7 @@
 
 let second_host = $env.SECOND_HOST
 
-def execute [--epoch_size: int, --data_size: int, --iterations: int, --operation: string, --num_pe: int, --duration: int, --num_working_set: int] {
+def execute [--epoch_size: int, --data_size: int, --iterations: int, --operation: string, --num_pe: int, --duration: int, --num_working_set: int = 4] {
     print $second_host
     let hosts = $"localhost:($num_pe),($second_host):($num_pe)"
     mpirun --wdir . --host $hosts -mca pml ucx --mca btl ^vader,tcp,openib,uct -x UCX_NET_DEVICES=mlx5_1:1 -x RUST_BACKTRACE=1 ./target/release/benchmark --epoch-size $epoch_size -s $data_size -d $duration -n $iterations --operation $operation -w $num_working_set
