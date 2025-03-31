@@ -252,14 +252,16 @@ fn benchmark_loop<'a>(
 
         let elapsed = now.elapsed();
 
-        let total_messages = epoch_per_iteration * epoch_size;
-        let throughput = total_messages as f64 / elapsed.as_secs_f64();
-        // println!(
-        //     "Throughput on Machine {my_pe}: {:.2} messages/second",
-        //     throughput
-        // );
+        if final_throughput == 0.0 || running.load(std::sync::atomic::Ordering::SeqCst) {
+            let total_messages = epoch_per_iteration * epoch_size;
+            let throughput = total_messages as f64 / elapsed.as_secs_f64();
+            // println!(
+            //     "Throughput on Machine {my_pe}: {:.2} messages/second",
+            //     throughput
+            // );
 
-        final_throughput = throughput;
+            final_throughput = throughput;
+        }
 
         // let only the main pe to stop others
         if !local_running.load(std::sync::atomic::Ordering::Relaxed) && my_pe == 0 {
