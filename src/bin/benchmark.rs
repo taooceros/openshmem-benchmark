@@ -20,6 +20,8 @@ use openshmem_sys::{my_pe, oshmem_team_world, shmem_char_p};
 enum Operation {
     Put,
     Get,
+    PutNonBlocking,
+    GetNonBlocking,
 }
 
 impl ToString for Operation {
@@ -27,6 +29,8 @@ impl ToString for Operation {
         match self {
             Operation::Put => "put".to_string(),
             Operation::Get => "get".to_string(),
+            Operation::PutNonBlocking => "put_non_blocking".to_string(),
+            Operation::GetNonBlocking => "get_non_blocking".to_string(),
         }
     }
 }
@@ -228,7 +232,13 @@ fn benchmark_loop<'a>(
                             source[i].put_to(&mut dest[i], (my_pe + num_concurrency) as i32);
                         }
                         Operation::Get => {
-                            dest[i].get_from(&mut source[i], (my_pe + num_concurrency) as i32);
+                            dest[i].get_from(&source[i], (my_pe + num_concurrency) as i32);
+                        }
+                        Operation::PutNonBlocking => {
+                            source[i].put_to_nbi(&mut dest[i], (my_pe + num_concurrency) as i32);
+                        }
+                        Operation::GetNonBlocking => {
+                            dest[i].get_from_nbi(&source[i], (my_pe + num_concurrency) as i32);
                         }
                     }
                 }
