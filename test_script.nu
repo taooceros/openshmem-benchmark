@@ -2,7 +2,7 @@
 
 let second_host = $env.SECOND_HOST
 
-def execute [--epoch_size: int, --data_size: int, --iterations: int, --operation: string, --num_pe: int, --duration: int, --num_working_set: int = 4] {
+def execute [--epoch_size: int, --data_size: int, --iterations: int, --operation: string, --num_pe: int, --duration: int, --num_working_set: int = 1] {
     print $second_host
     let hosts = $"localhost:($num_pe),($second_host):($num_pe)"
     mpirun --wdir . --host $hosts -mca pml ucx --mca btl ^vader,tcp,openib,uct -x UCX_NET_DEVICES=mlx5_1:1 -x RUST_BACKTRACE=1 ./target/release/benchmark --epoch-size $epoch_size -s $data_size -d $duration -n $iterations --operation $operation -w $num_working_set
@@ -12,7 +12,7 @@ def "main" [] {
 
 }
 
-def "main test" [--epoch_size (-e): int = 1, --data_size (-s): int = 2, --iterations (-i): int = 100000, --operation (-o): string = "put", --duration: int = 2, --num_pe: int = 1, --num_working_set: int = 4] {
+def "main test" [--epoch_size (-e): int = 1, --data_size (-s): int = 2, --iterations (-i): int = 100000, --operation (-o): string = "put", --duration: int = 2, --num_pe: int = 1, --num_working_set: int = 1] {
     cargo build --release
     execute --epoch_size $epoch_size --data_size $data_size --iterations $iterations --operation $operation --duration $duration --num_pe $num_pe --num_working_set $num_working_set
 }
@@ -37,6 +37,8 @@ def single_bench [epoch_size: int, data_size: int, iterations: int, operation: s
                 ($throughput | merge {
                     "data_size": $data_size,
                     "epoch_size": $epoch_size,
+                    "operation": $operation,
+                    "num_pe": $num_pe,
                 })
             }
             
@@ -75,15 +77,20 @@ def nested_each [items: list<list>, f: closure, args: list = []] {
 def "main bench" [] {
     cargo build --release
     
-    let iterations = 100000
+    let iterations = 30000
     
-    let operations = ["put" "get" "put-non-blocking" "get-non-blocking"]
+    let operations = [
+        # "put"
+        # "get"
+        "put-non-blocking"
+        "get-non-blocking"
+    ]
     let num_pes = [1 2 4 8 16 32 64]
     let epoch_sizes = [1 2 4 8 16 32 64 128 256 512 1024]
     let data_sizes = [1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384]
 
-    let records = nested_each [$operations $num_pes $epoch_sizes $data_sizes] {|num_pe, epoch_size, data_size|
-        single_bench $epoch_size $data_size $iterations $num_pe
+    let records = nested_each [$operations $num_pes $epoch_sizes $data_sizes] {|$operation: string num_pe: int epoch_size: int data_size: int|
+        single_bench $epoch_size $data_size $iterations $operation $num_pe
     }
 
     print $records
