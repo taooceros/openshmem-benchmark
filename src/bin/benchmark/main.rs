@@ -217,24 +217,31 @@ fn benchmark_loop<'a>(
             let source = &mut data.src_working_set[i];
             let dest = &mut data.dst_working_set[i];
 
-            if my_pe < num_concurrency {
-                for (src, dst) in source.iter_mut().zip(dest.iter_mut()) {
-                    match operation {
-                        Operation::Put => {
+            for (src, dst) in source.iter_mut().zip(dest.iter_mut()) {
+                match operation {
+                    Operation::Put => {
+                        if my_pe < num_concurrency {
                             src.put_to(dst, (my_pe + num_concurrency) as i32);
                         }
-                        Operation::Get => {
+                    }
+                    Operation::Get => {
+                        if my_pe >= num_concurrency {
                             dst.get_from(src, (my_pe + num_concurrency) as i32);
                         }
-                        Operation::PutNonBlocking => {
+                    }
+                    Operation::PutNonBlocking => {
+                        if my_pe < num_concurrency {
                             src.put_to_nbi(dst, (my_pe + num_concurrency) as i32);
                         }
-                        Operation::GetNonBlocking => {
+                    }
+                    Operation::GetNonBlocking => {
+                        if my_pe >= num_concurrency {
                             dst.get_from_nbi(src, (my_pe + num_concurrency) as i32);
                         }
-                    };
-                }
+                    }
+                };
             }
+
             scope.barrier_all();
 
             if my_pe >= num_concurrency {
