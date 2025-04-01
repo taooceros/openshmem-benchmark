@@ -1,8 +1,8 @@
 use std::{
-    alloc::{Allocator, GlobalAlloc}, backtrace::Backtrace, ptr::NonNull, sync::Arc
+    alloc::Allocator, ptr::NonNull
 };
 
-use openshmem_sys::{shfree, shmalloc, shmemalign, shrealloc};
+use openshmem_sys::{shfree, shmemalign, shrealloc};
 
 use crate::osm_scope::OsmScope;
 

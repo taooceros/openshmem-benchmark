@@ -4,7 +4,7 @@ use std::{
     ops::{Deref, DerefMut},
 };
 
-use openshmem_sys::{shmem_broadcastmem, shmem_putmem};
+use openshmem_sys::shmem_putmem;
 
 #[repr(transparent)]
 pub struct OsmWrapper<T> {

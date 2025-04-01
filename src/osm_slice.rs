@@ -4,7 +4,7 @@ use std::{
 };
 
 use openshmem_sys::{
-    shmem_alltoallmem, shmem_broadcastmem, shmem_putmem, shmem_putmem_nbi, shmem_team_t,
+    shmem_broadcastmem, shmem_putmem, shmem_putmem_nbi, shmem_team_t,
 };
 
 use crate::osm_wrapper::OsmWrapper;

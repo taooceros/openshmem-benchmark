@@ -1,21 +1,17 @@
 #![feature(allocator_api)]
 
-use core::num;
 use std::iter::repeat_with;
-use std::ops::{Deref, DerefMut, Index, IndexMut};
-use std::process::exit;
+use std::ops::Deref;
 use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, AtomicU64};
+use std::sync::atomic::AtomicBool;
 
 use bon::builder;
 use clap::Parser;
-use libc::{_SC_MEMORY_PROTECTION, gethostname};
-use openshmem_benchmark::osm_arc::OsmArc;
+use libc::gethostname;
 use openshmem_benchmark::osm_box::OsmBox;
 use openshmem_benchmark::osm_scope;
 use openshmem_benchmark::osm_vec::ShVec;
-use openshmem_benchmark::{osm_alloc::OsmMalloc, osm_scope::OsmScope};
-use openshmem_sys::{my_pe, oshmem_team_world, shmem_char_p};
+use openshmem_benchmark::osm_scope::OsmScope;
 
 mod layout;
 

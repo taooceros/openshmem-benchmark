@@ -1,12 +1,11 @@
 use std::{
-    array::from_fn,
     iter::repeat_with,
     ops::{Deref, DerefMut},
 };
 
-use bon::{bon, builder};
+use bon::bon;
 use openshmem_benchmark::{
-    osm_scope::{self, OsmScope},
+    osm_scope::{self},
     osm_vec::ShVec,
 };
 
