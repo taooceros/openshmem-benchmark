@@ -4,7 +4,7 @@ use std::{
 };
 
 use openshmem_sys::{
-    shmem_broadcastmem, shmem_putmem, shmem_putmem_nbi, shmem_team_t,
+    shmem_broadcastmem, shmem_getmem, shmem_getmem_nbi, shmem_putmem, shmem_putmem_nbi, shmem_team_t
 };
 
 use crate::osm_wrapper::OsmWrapper;
@@ -83,7 +83,7 @@ impl<T> OsmSlice<T> {
 
     pub fn get_from(&mut self, other: &Self, target_pe: i32) {
         unsafe {
-            shmem_putmem(
+            shmem_getmem(
                 self.as_mut_ptr().cast(),
                 other.as_ptr().cast(),
                 std::mem::size_of::<T>() * self.len(),
@@ -94,7 +94,7 @@ impl<T> OsmSlice<T> {
 
     pub fn get_from_nbi(&mut self, other: &Self, target_pe: i32) {
         unsafe {
-            shmem_putmem_nbi(
+            shmem_getmem_nbi(
                 self.as_mut_ptr().cast(),
                 other.as_ptr().cast(),
                 std::mem::size_of::<T>() * self.len(),
