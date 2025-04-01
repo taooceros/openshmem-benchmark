@@ -226,7 +226,7 @@ fn benchmark_loop<'a>(
                     }
                     Operation::Get => {
                         if my_pe >= num_concurrency {
-                            dst.get_from(src, (my_pe + num_concurrency) as i32);
+                            dst.get_from(src, (my_pe - num_concurrency) as i32);
                         }
                     }
                     Operation::PutNonBlocking => {
@@ -236,7 +236,7 @@ fn benchmark_loop<'a>(
                     }
                     Operation::GetNonBlocking => {
                         if my_pe >= num_concurrency {
-                            dst.get_from_nbi(src, (my_pe + num_concurrency) as i32);
+                            dst.get_from_nbi(src, (my_pe - num_concurrency) as i32);
                         }
                     }
                 };
