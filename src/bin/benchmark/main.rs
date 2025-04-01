@@ -10,8 +10,8 @@ use clap::Parser;
 use libc::gethostname;
 use openshmem_benchmark::osm_box::OsmBox;
 use openshmem_benchmark::osm_scope;
-use openshmem_benchmark::osm_vec::ShVec;
 use openshmem_benchmark::osm_scope::OsmScope;
+use openshmem_benchmark::osm_vec::ShVec;
 
 mod layout;
 
@@ -30,8 +30,8 @@ impl ToString for Operation {
         match self {
             Operation::Put => "put".to_string(),
             Operation::Get => "get".to_string(),
-            Operation::PutNonBlocking => "put_non_blocking".to_string(),
-            Operation::GetNonBlocking => "get_non_blocking".to_string(),
+            Operation::PutNonBlocking => "put-non-blocking".to_string(),
+            Operation::GetNonBlocking => "get-non-blocking".to_string(),
         }
     }
 }
@@ -146,11 +146,12 @@ fn benchmark(cli: &Config) {
 
     println!("pe {}: stopping benchmark", scope.my_pe());
 
-    output(&scope, num_concurrency, my_pe, final_throughput);
+    output(&scope, num_concurrency, final_throughput, &cli);
 }
 
-fn output(scope: &OsmScope, num_concurrency: usize, my_pe: usize, final_throughput: f64) {
+fn output(scope: &OsmScope, num_concurrency: usize, final_throughput: f64, config: &Config) {
     // eprintln!("Final throughput: {:.2} messages/second", final_throughput);
+    let my_pe = scope.my_pe() as usize;
 
     let mut throughputs = ShVec::with_capacity(num_concurrency, &scope);
 
@@ -170,6 +171,11 @@ fn output(scope: &OsmScope, num_concurrency: usize, my_pe: usize, final_throughp
         println!("Throughput on all PEs:");
         for i in 0..num_concurrency {
             eprintln!("PE {}: {:.2} messages/second", i, throughputs[i].deref());
+            println!(
+                "PE {}: {:.2} Gbps",
+                i,
+                throughputs[i].deref() * config.size as f64 / 1_000_000_000.0 * 8.0
+            );
         }
     }
 }
@@ -201,9 +207,10 @@ fn benchmark_loop<'a>(
         if !running.load(std::sync::atomic::Ordering::SeqCst) {
             break;
         }
+
         // while running.load(std::sync::atomic::Ordering::SeqCst) {
         let now = std::time::Instant::now();
-        for _ in 0..(epoch_per_iteration / num_concurrency) {
+        for _ in 0..(epoch_per_iteration) {
             seed = (1 + seed * 7) % PRIME;
             let i = seed % num_working_set;
 
