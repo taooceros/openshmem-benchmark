@@ -245,16 +245,16 @@ fn benchmark_loop<'a>(
             }
 
             if epoch % 1000 == 0 {
-                println!(
-                    "pe {my_pe} {epoch} elapsed time: {}",
-                    begin.elapsed().as_micros()
-                );
+                // println!(
+                //     "pe {my_pe} {epoch} elapsed time: {}",
+                //     begin.elapsed().as_micros()
+                // );
             }
 
             let now = std::time::Instant::now();
             scope.barrier_all();
             if epoch % 1000 == 0 {
-                println!("pe {my_pe} {epoch} barrier elapsed time: {}", now.elapsed().as_micros());
+                // println!("pe {my_pe} {epoch} barrier elapsed time: {}", now.elapsed().as_micros());
             }
 
             // let now = std::time::Instant::now();
