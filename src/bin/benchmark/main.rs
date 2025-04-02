@@ -4,6 +4,7 @@ use std::iter::repeat_with;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
+use std::time::Instant;
 
 use bon::builder;
 use clap::Parser;
@@ -129,11 +130,11 @@ fn benchmark(cli: &Config) {
             .num_working_set(cli.num_working_set)
             .call()
     })
-    .take(1)
+    .take(num_concurrency)
     .collect::<Vec<_>>();
 
     let my_pe = scope.my_pe() as usize % num_concurrency;
-    let target_pe = 0;
+    let target_pe = my_pe;
 
     let final_throughput = benchmark_loop()
         .scope(&scope)
@@ -208,15 +209,15 @@ fn benchmark_loop<'a>(
             break;
         }
 
-        // while running.load(std::sync::atomic::Ordering::SeqCst) {
         let now = std::time::Instant::now();
-        for _ in 0..(epoch_per_iteration) {
+        for epoch in 0..(epoch_per_iteration) {
             seed = (1 + seed * 7) % PRIME;
             let i = seed % num_working_set;
 
             let source = &mut data.src_working_set[i];
             let dest = &mut data.dst_working_set[i];
 
+            let begin = Instant::now();
             for (src, dst) in source.iter_mut().zip(dest.iter_mut()) {
                 match operation {
                     Operation::Put => {
@@ -224,14 +225,14 @@ fn benchmark_loop<'a>(
                             src.put_to(dst, (my_pe + num_concurrency) as i32);
                         }
                     }
-                    Operation::Get => {
-                        if my_pe >= num_concurrency {
-                            dst.get_from(src, (my_pe - num_concurrency) as i32);
-                        }
-                    }
                     Operation::PutNonBlocking => {
                         if my_pe < num_concurrency {
                             src.put_to_nbi(dst, (my_pe + num_concurrency) as i32);
+                        }
+                    }
+                    Operation::Get => {
+                        if my_pe >= num_concurrency {
+                            dst.get_from(src, (my_pe - num_concurrency) as i32);
                         }
                     }
                     Operation::GetNonBlocking => {
@@ -242,25 +243,41 @@ fn benchmark_loop<'a>(
                 };
             }
 
-            scope.barrier_all();
-
-            if my_pe >= num_concurrency {
-                for (source, dest) in source.iter().zip(dest.iter()) {
-                    // check if the data is correct
-                    // eprintln!("source {:?}, dest {:?}", source, dest);
-                    for (j, (left, right)) in source.iter().zip(dest.iter()).enumerate() {
-                        if left != right {
-                            panic!(
-                                "Data mismatch at index {}: source {:?} dest {:?}",
-                                j, left, right
-                            );
-                        }
-                    }
-                }
+            if epoch % 1000 == 0 {
+                println!(
+                    "pe {my_pe} {epoch} elapsed time: {}",
+                    begin.elapsed().as_micros()
+                );
             }
+
+            let now = std::time::Instant::now();
+            scope.barrier_all();
+            if epoch % 1000 == 0 {
+                println!("pe {my_pe} {epoch} barrier elapsed time: {}", now.elapsed().as_micros());
+            }
+
+            // let now = std::time::Instant::now();
+
+            // if my_pe >= num_concurrency {
+            //     for (source, dest) in source.iter().zip(dest.iter()) {
+            //         // check if the data is correct
+            //         // eprintln!("source {:?}, dest {:?}", source, dest);
+            //         for (j, (left, right)) in source.iter().zip(dest.iter()).enumerate() {
+            //             if left != right {
+            //                 panic!(
+            //                     "Data mismatch at index {}: source {:?} dest {:?}",
+            //                     j, left, right
+            //                 );
+            //             }
+            //         }
+            //     }
+            // }
+
+            // println!("elapsed time: {}", now.elapsed().as_micros());
         }
 
         let elapsed = now.elapsed();
+        println!("pe {my_pe} elapsed time: {}", elapsed.as_micros());
 
         if final_throughput == 0.0 || running.load(std::sync::atomic::Ordering::SeqCst) {
             let total_messages = epoch_per_iteration * epoch_size;
