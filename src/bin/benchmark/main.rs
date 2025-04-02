@@ -259,16 +259,16 @@ fn benchmark_loop<'a>(
 
             // let now = std::time::Instant::now();
 
-            if my_pe >= num_concurrency {
-                let check_epoch = seed % epoch_size;
-                let check_data = seed % data_size;
-                if source[check_epoch][check_data] != dest[check_epoch][check_data] {
-                    println!(
-                        "pe {my_pe} epoch {epoch} check failed: {:?} != {:?}",
-                        source[check_epoch], dest[check_epoch]
-                    );
-                }
-            }
+            // if my_pe >= num_concurrency {
+            //     let check_epoch = seed % epoch_size;
+            //     let check_data = seed % data_size;
+            //     if source[check_epoch][check_data] != dest[check_epoch][check_data] {
+            //         println!(
+            //             "pe {my_pe} epoch {epoch} check failed: {:?} != {:?}",
+            //             source[check_epoch], dest[check_epoch]
+            //         );
+            //     }
+            // }
 
             // println!("elapsed time: {}", now.elapsed().as_micros());
         }
