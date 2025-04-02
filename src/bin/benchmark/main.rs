@@ -196,6 +196,7 @@ fn benchmark_loop<'a>(
     let num_concurrency = (num_pe / 2) as usize;
 
     let epoch_size = data.epoch_size();
+    let data_size = data.data_size();
     const PRIME: usize = 1_000_000_007;
     let mut seed = 0;
     let num_working_set = data.num_working_set();
@@ -258,20 +259,16 @@ fn benchmark_loop<'a>(
 
             // let now = std::time::Instant::now();
 
-            // if my_pe >= num_concurrency {
-            //     for (source, dest) in source.iter().zip(dest.iter()) {
-            //         // check if the data is correct
-            //         // eprintln!("source {:?}, dest {:?}", source, dest);
-            //         for (j, (left, right)) in source.iter().zip(dest.iter()).enumerate() {
-            //             if left != right {
-            //                 panic!(
-            //                     "Data mismatch at index {}: source {:?} dest {:?}",
-            //                     j, left, right
-            //                 );
-            //             }
-            //         }
-            //     }
-            // }
+            if my_pe >= num_concurrency {
+                let check_epoch = seed % epoch_size;
+                let check_data = seed % data_size;
+                if source[check_epoch][check_data] != dest[check_epoch][check_data] {
+                    println!(
+                        "pe {my_pe} epoch {epoch} check failed: {:?} != {:?}",
+                        source[check_epoch], dest[check_epoch]
+                    );
+                }
+            }
 
             // println!("elapsed time: {}", now.elapsed().as_micros());
         }
