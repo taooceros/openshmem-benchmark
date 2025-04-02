@@ -278,7 +278,6 @@ fn benchmark_loop<'a>(
         }
 
         let elapsed = now.elapsed();
-        println!("pe {my_pe} elapsed time: {}", elapsed.as_micros());
 
         if final_throughput == 0.0 || running.load(std::sync::atomic::Ordering::SeqCst) {
             let total_messages = epoch_per_iteration * epoch_size;
