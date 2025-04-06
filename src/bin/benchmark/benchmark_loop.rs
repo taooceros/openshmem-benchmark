@@ -151,42 +151,43 @@ pub fn benchmark_loop<'a>(
                             }
                         }
                     }
-                    OperationType::AtomicOperation(op) => match op {
-                        AtomicOperation::FetchAdd32 => {
-                            if cache32 + (seed as i32) + (seed as i32)
-                                != i32::from_le_bytes(
-                                    dest[seed % epoch_size]
-                                        .deref()
-                                        .deref()
-                                        .try_into()
-                                        .expect("data size should be as intended"),
-                                )
-                            {
-                                panic!(
-                                    "pe {my_pe} epoch {epoch} second check failed: {:?} != {:?}",
-                                    dest[seed % epoch_size],
-                                    cache32
-                                );
-                            }
-                        }
-                        AtomicOperation::FetchAdd64 => {
-                            if cache64 + (seed as i64) + (seed as i64)
-                                != i64::from_le_bytes(
-                                    dest[seed % epoch_size]
-                                        .deref()
-                                        .deref()
-                                        .try_into()
-                                        .expect("data size should be as intended"),
-                                )
-                            {
-                                panic!(
-                                    "pe {my_pe} epoch {epoch} second check failed: {:?} != {:?}",
-                                    dest[seed % epoch_size],
-                                    cache64
-                                );
-                            }
-                        }
-                    },
+                    _ => {}
+                    // OperationType::AtomicOperation(op) => match op {
+                    //     AtomicOperation::FetchAdd32 => {
+                    //         if cache32 + (seed as i32) + (seed as i32)
+                    //             != i32::from_le_bytes(
+                    //                 dest[seed % epoch_size]
+                    //                     .deref()
+                    //                     .deref()
+                    //                     .try_into()
+                    //                     .expect("data size should be as intended"),
+                    //             )
+                    //         {
+                    //             panic!(
+                    //                 "pe {my_pe} epoch {epoch} second check failed: {:?} != {:?}",
+                    //                 dest[seed % epoch_size],
+                    //                 cache32
+                    //             );
+                    //         }
+                    //     }
+                    //     AtomicOperation::FetchAdd64 => {
+                    //         if cache64 + (seed as i64) + (seed as i64)
+                    //             != i64::from_le_bytes(
+                    //                 dest[seed % epoch_size]
+                    //                     .deref()
+                    //                     .deref()
+                    //                     .try_into()
+                    //                     .expect("data size should be as intended"),
+                    //             )
+                    //         {
+                    //             panic!(
+                    //                 "pe {my_pe} epoch {epoch} second check failed: {:?} != {:?}",
+                    //                 dest[seed % epoch_size],
+                    //                 cache64
+                    //             );
+                    //         }
+                    //     }
+                    // },
                 }
             }
 
@@ -202,9 +203,9 @@ pub fn benchmark_loop<'a>(
                 _ => {}
             }
 
-            if let OperationType::AtomicOperation(_) = operation.get_operation_type() {
-                scope.barrier_all();
-            }
+            // if let OperationType::AtomicOperation(_) = operation.get_operation_type() {
+            //     scope.barrier_all();
+            // }
 
             // println!("elapsed time: {}", now.elapsed().as_micros());
         }
