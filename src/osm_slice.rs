@@ -4,7 +4,8 @@ use std::{
 };
 
 use openshmem_sys::{
-    shmem_broadcastmem, shmem_getmem, shmem_getmem_nbi, shmem_putmem, shmem_putmem_nbi, shmem_team_t
+    shmem_broadcastmem, shmem_getmem, shmem_getmem_nbi, shmem_putmem, shmem_putmem_nbi,
+    shmem_team_t,
 };
 
 use crate::osm_wrapper::OsmWrapper;
@@ -103,15 +104,22 @@ impl<T> OsmSlice<T> {
         }
     }
 
-    pub fn broadcast_to(&self, other: &mut Self, team: shmem_team_t, pe_root: i32) {
+    pub fn broadcast_to<I>(&self, other: &mut Self, target_pes: impl Iterator<Item = I>)
+    where
+        I: TryInto<i32>,
+        <I as TryInto<i32>>::Error: std::fmt::Debug,
+    {
         unsafe {
-            shmem_broadcastmem(
-                team,
-                other.as_mut_ptr().cast(),
-                self.as_ptr().cast(),
-                std::mem::size_of::<T>() * self.len(),
-                pe_root,
-            );
+            for target_pe in target_pes {
+                shmem_putmem_nbi(
+                    other.as_mut_ptr().cast(),
+                    self.as_ptr().cast(),
+                    std::mem::size_of::<T>() * self.len(),
+                    target_pe
+                        .try_into()
+                        .expect("Failed to convert target_pe to i32"),
+                );
+            }
         }
     }
 }

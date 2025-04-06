@@ -24,16 +24,18 @@ enum Operation {
     Get,
     PutNonBlocking,
     GetNonBlocking,
+    Broadcast,
 }
 
 impl ToString for Operation {
     fn to_string(&self) -> String {
         match self {
-            Operation::Put => "put".to_string(),
-            Operation::Get => "get".to_string(),
-            Operation::PutNonBlocking => "put-non-blocking".to_string(),
-            Operation::GetNonBlocking => "get-non-blocking".to_string(),
-        }
+            Operation::Put => "put",
+            Operation::Get => "get",
+            Operation::PutNonBlocking => "put-non-blocking",
+            Operation::GetNonBlocking => "get-non-blocking",
+            Operation::Broadcast => "broadcast",
+        }.to_string()
     }
 }
 
@@ -122,6 +124,12 @@ fn benchmark(cli: &Config) {
     assert!(num_pe % 2 == 0, "Number of PEs must be even");
     let num_concurrency = (num_pe / 2) as usize;
 
+    // When doing broadcast, let's try to use different memory locations for each PE
+    let num_memory_location = match operation {
+        Operation::Broadcast => num_concurrency,
+        _ => 1,
+    };
+
     let mut datas = repeat_with(|| {
         BenchmarkData::setup_data()
             .data_size(data_size)
@@ -130,11 +138,15 @@ fn benchmark(cli: &Config) {
             .num_working_set(cli.num_working_set)
             .call()
     })
-    .take(num_concurrency)
+    .take(num_memory_location)
     .collect::<Vec<_>>();
 
     let my_pe = scope.my_pe() as usize % num_concurrency;
-    let target_pe = my_pe;
+
+    let data_id = match operation {
+        Operation::Broadcast => my_pe,
+        _ => 0,
+    };
 
     let final_throughput = benchmark_loop()
         .scope(&scope)
@@ -142,7 +154,7 @@ fn benchmark(cli: &Config) {
         .running(&mut running)
         .operation(operation)
         .epoch_per_iteration(cli.epoch_per_iteration)
-        .data(&mut datas[target_pe])
+        .data(&mut datas[data_id])
         .call();
 
     println!("pe {}: stopping benchmark", scope.my_pe());
@@ -239,6 +251,11 @@ fn benchmark_loop<'a>(
                     Operation::GetNonBlocking => {
                         if my_pe >= num_concurrency {
                             dst.get_from_nbi(src, (my_pe - num_concurrency) as i32);
+                        }
+                    }
+                    Operation::Broadcast => {
+                        if my_pe < num_concurrency {
+                            src.broadcast_to(dst, num_concurrency..(num_concurrency * 2));
                         }
                     }
                 };
