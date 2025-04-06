@@ -9,20 +9,22 @@ use openshmem_benchmark::{
     osm_vec::ShVec,
 };
 
-pub(crate) struct BenchmarkData<'a> {
+use crate::ops::Operation;
+
+pub(crate) struct RangeBenchmarkData<'a> {
     pub src_working_set: WorkingSet<'a>,
     pub dst_working_set: WorkingSet<'a>,
 }
 
 #[bon]
-impl<'a> BenchmarkData<'a> {
+impl<'a> RangeBenchmarkData<'a> {
     #[builder]
     pub fn setup_data(
         scope: &'a osm_scope::OsmScope,
         epoch_size: usize,
         data_size: usize,
         num_working_set: usize,
-    ) -> BenchmarkData<'a> {
+    ) -> RangeBenchmarkData<'a> {
         let mut source = Vec::with_capacity(num_working_set);
         let mut dest = Vec::with_capacity(epoch_size);
 
@@ -31,11 +33,7 @@ impl<'a> BenchmarkData<'a> {
                 .take(epoch_size)
                 .collect::<Vec<_>>();
 
-            for i in 0..epoch_size {
-                for j in 0..data_size {
-                    data[i].push((i * epoch_size + j) as u8);
-                }
-            }
+            data.iter_mut().for_each(|d| d.resize_with(data_size, || 0));
 
             source.push(Epoch::new(data));
 
@@ -48,7 +46,7 @@ impl<'a> BenchmarkData<'a> {
             dest.push(Epoch::new(data));
         }
 
-        BenchmarkData {
+        RangeBenchmarkData {
             src_working_set: WorkingSet::new(source),
             dst_working_set: WorkingSet::new(dest),
         }
@@ -103,7 +101,7 @@ impl<'a> Epoch<'a> {
     }
 }
 
-impl BenchmarkData<'_> {
+impl RangeBenchmarkData<'_> {
     pub fn num_working_set(&self) -> usize {
         self.src_working_set.len()
     }

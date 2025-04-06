@@ -1,5 +1,6 @@
 #![feature(allocator_api)]
 
+use crate::benchmark_loop::benchmark_loop;
 use std::iter::repeat_with;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -14,30 +15,12 @@ use openshmem_benchmark::osm_scope;
 use openshmem_benchmark::osm_scope::OsmScope;
 use openshmem_benchmark::osm_vec::ShVec;
 
+use layout::RangeBenchmarkData;
+use ops::{Operation, OperationType, RangeOperation};
+
+mod benchmark_loop;
 mod layout;
-
-use layout::BenchmarkData;
-
-#[derive(clap::ValueEnum, Debug, Clone, Copy)]
-enum Operation {
-    Put,
-    Get,
-    PutNonBlocking,
-    GetNonBlocking,
-    Broadcast,
-}
-
-impl ToString for Operation {
-    fn to_string(&self) -> String {
-        match self {
-            Operation::Put => "put",
-            Operation::Get => "get",
-            Operation::PutNonBlocking => "put-non-blocking",
-            Operation::GetNonBlocking => "get-non-blocking",
-            Operation::Broadcast => "broadcast",
-        }.to_string()
-    }
-}
+mod ops;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -118,7 +101,19 @@ fn benchmark(cli: &Config) {
 
     let operation = cli.operation;
     let epoch_size = cli.epoch_size;
-    let data_size = cli.size;
+    let mut data_size = cli.size;
+
+
+    // override data size for atomic operations
+    match operation {
+        Operation::FetchAdd32 => {
+            data_size = 4;
+        }
+        Operation::FetchAdd64 => {
+            data_size = 8;
+        }
+        _ => {}
+    }
 
     let num_pe = scope.num_pes();
     assert!(num_pe % 2 == 0, "Number of PEs must be even");
@@ -131,7 +126,7 @@ fn benchmark(cli: &Config) {
     };
 
     let mut datas = repeat_with(|| {
-        BenchmarkData::setup_data()
+        RangeBenchmarkData::setup_data()
             .data_size(data_size)
             .epoch_size(epoch_size)
             .scope(&scope)
@@ -140,7 +135,6 @@ fn benchmark(cli: &Config) {
     })
     .take(num_memory_location)
     .collect::<Vec<_>>();
-
     let my_pe = scope.my_pe() as usize % num_concurrency;
 
     let data_id = match operation {
@@ -191,131 +185,4 @@ fn output(scope: &OsmScope, num_concurrency: usize, final_throughput: f64, confi
             );
         }
     }
-}
-
-#[builder]
-fn benchmark_loop<'a>(
-    scope: &osm_scope::OsmScope,
-    local_running: Arc<AtomicBool>,
-    running: &mut OsmBox<'a, AtomicBool>,
-    operation: Operation,
-    epoch_per_iteration: usize,
-    data: &mut BenchmarkData<'a>,
-) -> f64 {
-    let mut final_throughput = 0.0;
-    let my_pe = scope.my_pe() as usize;
-    let num_pe = scope.num_pes() as usize;
-    let num_concurrency = (num_pe / 2) as usize;
-
-    let epoch_size = data.epoch_size();
-    let data_size = data.data_size();
-    const PRIME: usize = 1_000_000_007;
-    let mut seed = 0;
-    let num_working_set = data.num_working_set();
-
-    let false_signal = OsmBox::new(AtomicBool::new(false), &scope);
-
-    loop {
-        scope.barrier_all();
-
-        if !running.load(std::sync::atomic::Ordering::SeqCst) {
-            break;
-        }
-
-        let now = std::time::Instant::now();
-        for epoch in 0..(epoch_per_iteration) {
-            seed = (1 + seed * 7) % PRIME;
-            let i = seed % num_working_set;
-
-            let source = &mut data.src_working_set[i];
-            let dest = &mut data.dst_working_set[i];
-
-            let begin = Instant::now();
-            for (src, dst) in source.iter_mut().zip(dest.iter_mut()) {
-                match operation {
-                    Operation::Put => {
-                        if my_pe < num_concurrency {
-                            src.put_to(dst, (my_pe + num_concurrency) as i32);
-                        }
-                    }
-                    Operation::PutNonBlocking => {
-                        if my_pe < num_concurrency {
-                            src.put_to_nbi(dst, (my_pe + num_concurrency) as i32);
-                        }
-                    }
-                    Operation::Get => {
-                        if my_pe >= num_concurrency {
-                            dst.get_from(src, (my_pe - num_concurrency) as i32);
-                        }
-                    }
-                    Operation::GetNonBlocking => {
-                        if my_pe >= num_concurrency {
-                            dst.get_from_nbi(src, (my_pe - num_concurrency) as i32);
-                        }
-                    }
-                    Operation::Broadcast => {
-                        if my_pe < num_concurrency {
-                            src.broadcast_to(dst, num_concurrency..(num_concurrency * 2));
-                        }
-                    }
-                };
-            }
-
-            if epoch % 1000 == 0 {
-                // println!(
-                //     "pe {my_pe} {epoch} elapsed time: {}",
-                //     begin.elapsed().as_micros()
-                // );
-            }
-
-            let now = std::time::Instant::now();
-            scope.barrier_all();
-            if epoch % 1000 == 0 {
-                // println!("pe {my_pe} {epoch} barrier elapsed time: {}", now.elapsed().as_micros());
-            }
-
-            // let now = std::time::Instant::now();
-
-            if my_pe >= num_concurrency {
-                let check_epoch = seed % epoch_size;
-                let check_data = seed % data_size;
-                unsafe {
-                    if source.get_unchecked(check_epoch).get_unchecked(check_data)
-                        != dest.get_unchecked(check_epoch).get_unchecked(check_data)
-                    {
-                        println!(
-                            "pe {my_pe} epoch {epoch} check failed: {:?} != {:?}",
-                            source[check_epoch], dest[check_epoch]
-                        );
-                    }
-                }
-            }
-
-            // println!("elapsed time: {}", now.elapsed().as_micros());
-        }
-
-        let elapsed = now.elapsed();
-
-        if final_throughput == 0.0 || running.load(std::sync::atomic::Ordering::SeqCst) {
-            let total_messages = epoch_per_iteration * epoch_size;
-            let throughput = total_messages as f64 / elapsed.as_secs_f64();
-            // println!(
-            //     "Throughput on Machine {my_pe}: {:.2} messages/second",
-            //     throughput
-            // );
-
-            final_throughput = throughput;
-        }
-
-        // let only the main pe to stop others
-        if !local_running.load(std::sync::atomic::Ordering::Relaxed) && my_pe == 0 {
-            // set the running flag to false
-            for i in 0..num_pe as i32 {
-                println!("pe {}: stopping pe {}", scope.my_pe(), i);
-                false_signal.put_to_nbi(running, i);
-            }
-        }
-    }
-
-    final_throughput
 }

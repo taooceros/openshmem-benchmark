@@ -1,3 +1,4 @@
+use std::fmt::Debug;
 use std::{
     ffi::c_void,
     fmt::Display,
@@ -22,6 +23,12 @@ impl<T> Deref for OsmWrapper<T> {
 
     fn deref(&self) -> &Self::Target {
         &self.data
+    }
+}
+
+impl<T: Debug> Debug for OsmWrapper<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{:?}", self.data)
     }
 }
 

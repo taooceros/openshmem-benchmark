@@ -4,8 +4,7 @@ use std::{
 };
 
 use openshmem_sys::{
-    shmem_broadcastmem, shmem_getmem, shmem_getmem_nbi, shmem_putmem, shmem_putmem_nbi,
-    shmem_team_t,
+    shmem_broadcastmem, shmem_getmem, shmem_getmem_nbi, shmem_int_atomic_fetch_add, shmem_int_fadd, shmem_long_atomic_fetch_add, shmem_putmem, shmem_putmem_nbi, shmem_team_t
 };
 
 use crate::osm_wrapper::OsmWrapper;
@@ -120,6 +119,26 @@ impl<T> OsmSlice<T> {
                         .expect("Failed to convert target_pe to i32"),
                 );
             }
+        }
+    }
+
+    pub fn fetch_add_i32(&mut self, value: i32, target_pe: i32) -> i32 {
+        unsafe {
+            if self.len() != size_of::<i32>() {
+                panic!("fetch_add_i32 only works for i32");
+            }
+
+            shmem_int_atomic_fetch_add(self.as_mut_ptr().cast(), value, target_pe)
+        }
+    }
+
+    pub fn fetch_add_i64(&mut self, value: i64, target_pe: i32) -> i64 {
+        unsafe {
+            if self.len() != size_of::<i64>() {
+                panic!("fetch_add_i64 only works for i64");
+            }
+
+            shmem_long_atomic_fetch_add(self.as_mut_ptr().cast(), value, target_pe)
         }
     }
 }
