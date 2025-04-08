@@ -10,7 +10,7 @@ use openshmem_benchmark::{osm_box::OsmBox, osm_scope};
 
 use crate::{
     RangeBenchmarkData,
-    ops::{self, AtomicOperation, Operation, OperationType, RangeOperation},
+    ops::{self, AtomicOperation, GetOperation, Operation, PutOperation, RangeOperation},
 };
 
 #[builder]
@@ -33,16 +33,13 @@ pub fn benchmark_loop<'a>(
     let mut seed = 0;
     let num_working_set = data.num_working_set();
 
-    if let ops::OperationType::AtomicOperation(_) = operation.get_operation_type() {
+    if let Operation::Atomic { op: operation, .. } = operation {
         if ![4usize, 8usize].contains(&data_size) {
             panic!("Atomic operation requires data size to be 4 or 8 bytes (int or long)");
         }
     }
 
     let false_signal = OsmBox::new(AtomicBool::new(false), &scope);
-
-    let mut cache32 = 0;
-    let mut cache64 = 0;
 
     loop {
         scope.barrier_all();
@@ -64,57 +61,46 @@ pub fn benchmark_loop<'a>(
             for (src, dst) in source.iter_mut().zip(dest.iter_mut()) {
                 match operation {
                     // TODO: add validation for range operation
-                    Operation::Put => {
+                    Operation::RangeOperation(RangeOperation::Put(operation)) => {
                         if my_pe < num_concurrency {
-                            src.put_to(dst, (my_pe + num_concurrency) as i32);
+                            match operation {
+                                PutOperation::Put => {
+                                    src.put_to(dst, (my_pe + num_concurrency) as i32);
+                                }
+                                PutOperation::PutNonBlocking => {
+                                    src.put_to_nbi(dst, (my_pe + num_concurrency) as i32);
+                                }
+                            }
                         }
                     }
-                    Operation::PutNonBlocking => {
-                        if my_pe < num_concurrency {
-                            src.put_to_nbi(dst, (my_pe + num_concurrency) as i32);
-                        }
-                    }
-                    Operation::Get => {
+                    Operation::RangeOperation(RangeOperation::Get(operation)) => {
                         if my_pe >= num_concurrency {
-                            dst.get_from(src, (my_pe - num_concurrency) as i32);
+                            match operation {
+                                GetOperation::Get => {
+                                    src.get_from(dst, (my_pe + num_concurrency) as i32);
+                                }
+                                GetOperation::GetNonBlocking => {
+                                    src.get_from_nbi(dst, (my_pe + num_concurrency) as i32);
+                                }
+                            }
                         }
                     }
-                    Operation::GetNonBlocking => {
-                        if my_pe >= num_concurrency {
-                            dst.get_from_nbi(src, (my_pe - num_concurrency) as i32);
-                        }
-                    }
-                    Operation::Broadcast => {
+
+                    Operation::RangeOperation(RangeOperation::Broadcast) => {
                         if my_pe < num_concurrency {
                             src.broadcast_to(dst, num_concurrency..(num_concurrency * 2));
                         }
                     }
-                    Operation::FetchAdd32 => {
-                        let target_pe = if my_pe < num_concurrency {
-                            my_pe + num_concurrency
-                        } else {
-                            my_pe
-                        };
-                        let res = dst.fetch_add_i32(seed as i32, target_pe as i32);
-                        if res != cache32 && res != cache32 + seed as i32 {
-                            panic!(
-                                "pe {my_pe} epoch {epoch} first check failed: {res} != {cache32} (seed = {seed})"
-                            );
-                        }
-                    }
-                    Operation::FetchAdd64 => {
-                        let target_pe = if my_pe < num_concurrency {
-                            my_pe + num_concurrency
-                        } else {
-                            my_pe
-                        };
-                        let res = dst.fetch_add_i64(seed as i64, target_pe as i32);
+                    Operation::Atomic { op: operation, use_different_location } => {
+                        let target_pe = if !use_different_location { 0 } else { my_pe % num_concurrency };
 
-                        if res != cache64 && res != cache64 + seed as i64 {
-                            panic!(
-                                "pe {my_pe} epoch {epoch} first check failed: {} != {} (seed = {})",
-                                res, cache64, seed
-                            );
+                        match operation {
+                            AtomicOperation::FetchAdd32 => {
+                                dst.fetch_add_i32(seed as i32, target_pe as i32);
+                            }
+                            AtomicOperation::FetchAdd64 => {
+                                dst.fetch_add_i64(seed as i64, target_pe as i32);
+                            }
                         }
                     }
                 };
@@ -128,7 +114,7 @@ pub fn benchmark_loop<'a>(
             }
 
             let now = Instant::now();
-            scope.barrier_all();
+            // scope.barrier_all();
             if epoch % 1000 == 0 {
                 // println!("pe {my_pe} {epoch} barrier elapsed time: {}", now.elapsed().as_micros());
             }
@@ -136,78 +122,21 @@ pub fn benchmark_loop<'a>(
             // let now = std::time::Instant::now();
 
             if my_pe >= num_concurrency {
-                match operation.get_operation_type() {
-                    OperationType::RangeOperation(_) => {
-                        let check_epoch = seed % epoch_size;
-                        let check_data = seed % data_size;
-                        unsafe {
-                            if source.get_unchecked(check_epoch).get_unchecked(check_data)
-                                != dest.get_unchecked(check_epoch).get_unchecked(check_data)
-                            {
-                                println!(
-                                    "pe {my_pe} epoch {epoch} check failed: {:?} != {:?}",
-                                    source[check_epoch], dest[check_epoch]
-                                );
-                            }
+                if let Operation::RangeOperation(_) = operation {
+                    let check_epoch = seed % epoch_size;
+                    let check_data = seed % data_size;
+                    unsafe {
+                        if source.get_unchecked(check_epoch).get_unchecked(check_data)
+                            != dest.get_unchecked(check_epoch).get_unchecked(check_data)
+                        {
+                            println!(
+                                "pe {my_pe} epoch {epoch} check failed: {:?} != {:?}",
+                                source[check_epoch], dest[check_epoch]
+                            );
                         }
                     }
-                    _ => {}
-                    // OperationType::AtomicOperation(op) => match op {
-                    //     AtomicOperation::FetchAdd32 => {
-                    //         if cache32 + (seed as i32) + (seed as i32)
-                    //             != i32::from_le_bytes(
-                    //                 dest[seed % epoch_size]
-                    //                     .deref()
-                    //                     .deref()
-                    //                     .try_into()
-                    //                     .expect("data size should be as intended"),
-                    //             )
-                    //         {
-                    //             panic!(
-                    //                 "pe {my_pe} epoch {epoch} second check failed: {:?} != {:?}",
-                    //                 dest[seed % epoch_size],
-                    //                 cache32
-                    //             );
-                    //         }
-                    //     }
-                    //     AtomicOperation::FetchAdd64 => {
-                    //         if cache64 + (seed as i64) + (seed as i64)
-                    //             != i64::from_le_bytes(
-                    //                 dest[seed % epoch_size]
-                    //                     .deref()
-                    //                     .deref()
-                    //                     .try_into()
-                    //                     .expect("data size should be as intended"),
-                    //             )
-                    //         {
-                    //             panic!(
-                    //                 "pe {my_pe} epoch {epoch} second check failed: {:?} != {:?}",
-                    //                 dest[seed % epoch_size],
-                    //                 cache64
-                    //             );
-                    //         }
-                    //     }
-                    // },
                 }
             }
-
-            match operation {
-                Operation::FetchAdd32 => {
-                    cache32 += seed as i32;
-                    cache32 += seed as i32;
-                }
-                Operation::FetchAdd64 => {
-                    cache64 += seed as i64;
-                    cache64 += seed as i64;
-                }
-                _ => {}
-            }
-
-            // if let OperationType::AtomicOperation(_) = operation.get_operation_type() {
-            //     scope.barrier_all();
-            // }
-
-            // println!("elapsed time: {}", now.elapsed().as_micros());
         }
 
         let elapsed = now.elapsed();

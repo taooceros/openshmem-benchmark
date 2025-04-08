@@ -16,7 +16,7 @@ use openshmem_benchmark::osm_scope::OsmScope;
 use openshmem_benchmark::osm_vec::ShVec;
 
 use layout::RangeBenchmarkData;
-use ops::{Operation, OperationType, RangeOperation};
+use ops::{AtomicOperation, Operation, RangeOperation};
 
 mod benchmark_loop;
 mod layout;
@@ -25,18 +25,18 @@ mod ops;
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Config {
-    #[arg(long, default_value_t = 1)]
+    #[arg(global = true, long, default_value_t = 1)]
     epoch_size: usize,
-    #[arg(short, long, default_value_t = 1)]
+    #[arg(global = true, short, long, default_value_t = 1)]
     size: usize,
-    #[arg(short = 'n', long, default_value_t = 1000000)]
+    #[arg(global = true, short = 'n', long, default_value_t = 1000000)]
     epoch_per_iteration: usize,
-    #[arg(short, long, value_enum)]
+    #[arg(global = true, short, long, value_enum)]
     duration: Option<u64>,
-    #[arg(short, long, default_value_t = Operation::Put)]
-    operation: Operation,
-    #[arg(short = 'w', long, default_value_t = 4)]
+    #[arg(global = true, short = 'w', long, default_value_t = 4)]
     num_working_set: usize,
+    #[command(subcommand)]
+    operation: Operation,
 }
 
 fn main() {
@@ -103,15 +103,12 @@ fn benchmark(cli: &Config) {
     let epoch_size = cli.epoch_size;
     let mut data_size = cli.size;
 
-
     // override data size for atomic operations
     match operation {
-        Operation::FetchAdd32 => {
-            data_size = 4;
-        }
-        Operation::FetchAdd64 => {
-            data_size = 8;
-        }
+        Operation::Atomic { op: operation, .. } => match operation {
+            AtomicOperation::FetchAdd32 => data_size = 4,
+            AtomicOperation::FetchAdd64 => data_size = 8,
+        },
         _ => {}
     }
 
@@ -121,7 +118,7 @@ fn benchmark(cli: &Config) {
 
     // When doing broadcast, let's try to use different memory locations for each PE
     let num_memory_location = match operation {
-        Operation::Broadcast => num_concurrency,
+        Operation::RangeOperation(RangeOperation::Broadcast) => num_concurrency,
         _ => 1,
     };
 
@@ -138,7 +135,7 @@ fn benchmark(cli: &Config) {
     let my_pe = scope.my_pe() as usize % num_concurrency;
 
     let data_id = match operation {
-        Operation::Broadcast => my_pe,
+        Operation::RangeOperation(RangeOperation::Broadcast) => my_pe,
         _ => 0,
     };
 

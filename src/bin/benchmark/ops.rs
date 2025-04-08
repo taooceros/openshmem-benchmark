@@ -1,65 +1,44 @@
-use std::sync::atomic::AtomicU64;
-
+use clap::{Args, Parser, Subcommand};
 use openshmem_benchmark::{osm_slice::OsmSlice, osm_wrapper::OsmWrapper};
+use std::sync::atomic::AtomicU64;
+use strum::{Display, EnumString};
 
-#[derive(clap::ValueEnum, Debug, Clone, Copy)]
+#[derive(Subcommand, Debug, Clone, Copy, Display)]
 pub enum Operation {
-    Put,
-    Get,
-    PutNonBlocking,
-    GetNonBlocking,
-    Broadcast,
-    FetchAdd32,
-    FetchAdd64,
+    #[command(flatten)]
+    RangeOperation(RangeOperation),
+    Atomic {
+        #[command(subcommand)]
+        op: AtomicOperation,
+        #[arg(global = true, long, default_value_t = false)]
+        use_different_location: bool,
+    },
 }
 
-impl ToString for Operation {
-    fn to_string(&self) -> String {
-        match self {
-            Operation::Put => "put",
-            Operation::Get => "get",
-            Operation::PutNonBlocking => "put-non-blocking",
-            Operation::GetNonBlocking => "get-non-blocking",
-            Operation::Broadcast => "broadcast",
-            Operation::FetchAdd32 => "fetch-add-32",
-            Operation::FetchAdd64 => "fetch-add-64",
-        }
-        .to_string()
-    }
-}
-
-impl Operation {
-    pub fn get_operation_type(&self) -> OperationType {
-        match self {
-            Operation::Put => OperationType::RangeOperation(RangeOperation::Put),
-            Operation::Get => OperationType::RangeOperation(RangeOperation::Get),
-            Operation::PutNonBlocking => {
-                OperationType::RangeOperation(RangeOperation::PutNonBlocking)
-            }
-            Operation::GetNonBlocking => {
-                OperationType::RangeOperation(RangeOperation::GetNonBlocking)
-            }
-            Operation::Broadcast => OperationType::RangeOperation(RangeOperation::Broadcast),
-            Operation::FetchAdd32 => OperationType::AtomicOperation(AtomicOperation::FetchAdd32),
-            Operation::FetchAdd64 => OperationType::AtomicOperation(AtomicOperation::FetchAdd64),
-        }
-    }
-}
+#[derive(Subcommand, Debug, Clone, Copy, Display)]
 
 pub enum RangeOperation {
-    Put,
-    Get,
-    PutNonBlocking,
-    GetNonBlocking,
+    #[command(flatten)]
+    Put(PutOperation),
+    #[command(flatten)]
+    Get(GetOperation),
     Broadcast,
 }
 
+#[derive(Subcommand, Debug, Clone, Copy, Display)]
+pub enum PutOperation {
+    Put,
+    PutNonBlocking,
+}
+
+#[derive(Subcommand, Debug, Clone, Copy, Display)]
+pub enum GetOperation {
+    Get,
+    GetNonBlocking,
+}
+
+#[derive(Subcommand, Debug, Clone, Copy, Display)]
 pub enum AtomicOperation {
     FetchAdd32,
     FetchAdd64,
-}
-
-pub enum OperationType {
-    RangeOperation(RangeOperation),
-    AtomicOperation(AtomicOperation),
 }
