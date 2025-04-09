@@ -5,8 +5,11 @@ use strum::{Display, EnumString};
 
 #[derive(Subcommand, Debug, Clone, Copy, Display)]
 pub enum Operation {
-    #[command(flatten)]
-    RangeOperation(RangeOperation),
+    #[command(subcommand)]
+    #[strum(to_string = "Range({0})")]
+    Range(RangeOperation),
+
+    #[strum(to_string = "Atomic({op})")]
     Atomic {
         #[command(subcommand)]
         op: AtomicOperation,

@@ -86,7 +86,7 @@ fn print_config(config: &Config, scope: &OsmScope) {
     println!("  Epoch per iteration: {}", config.epoch_per_iteration);
     println!("  Number of PEs: {}", num_pe);
     println!("  Duration: {:?}", config.duration);
-    println!("  Operation: {}", config.operation.to_string());
+    println!("  Operation: {}", config.operation);
     println!("  Number of Working Set: {}", config.num_working_set);
 }
 
@@ -118,7 +118,7 @@ fn benchmark(cli: &Config) {
 
     // When doing broadcast, let's try to use different memory locations for each PE
     let num_memory_location = match operation {
-        Operation::RangeOperation(RangeOperation::Broadcast) => num_concurrency,
+        Operation::Range(RangeOperation::Broadcast) => num_concurrency,
         _ => 1,
     };
 
@@ -135,7 +135,7 @@ fn benchmark(cli: &Config) {
     let my_pe = scope.my_pe() as usize % num_concurrency;
 
     let data_id = match operation {
-        Operation::RangeOperation(RangeOperation::Broadcast) => my_pe,
+        Operation::Range(RangeOperation::Broadcast) => my_pe,
         _ => 0,
     };
 

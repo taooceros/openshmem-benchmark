@@ -3,23 +3,27 @@
 let second_host = $env.SECOND_HOST
 
 def execute [
+    operation: record
     --epoch_size: int
     --data_size: int
     --iterations: int
-    --operation: string
     --num_pe: int
     --duration: int
     --num_working_set: int = 1
+    --additional_args: list<string> = []
 ] {
     print $second_host
     let hosts = $"localhost:($num_pe),($second_host):($num_pe)"
+    let operation = ( $operation | transpose | get column1)
+
     (oshrun --wdir . --host $hosts -mca pml ucx  -mca btl ^vader,tcp,openib,uct -x UCX_NET_DEVICES=mlx5_1:1 -x RUST_BACKTRACE=1 ./target/release/benchmark
+        ...$operation
         --epoch-size $epoch_size
         -s $data_size
         -d $duration
         -n $iterations
-        --operation $operation
-        -w $num_working_set)
+        -w $num_working_set
+        ...$additional_args)
 }
 
 def "main" [] {
@@ -27,23 +31,32 @@ def "main" [] {
 }
 
 def "main test" [
-    --epoch_size (-e): int = 128
-    --data_size (-s): int = 16384
-    --iterations (-i): int = 10000
-    --operation (-o): string = "put-non-blocking"
-    --duration: int = 5
-    --num_pe: int = 1
+    --epoch_size (-e): int = 1
+    --data_size (-s): int = 1
+    --iterations (-i): int = 50000
+    --operation (-o): record = { "group": "range", "operation": "put" }
+    --duration: int = 3
+    --num_pe: int = 32
     --num_working_set: int = 1
+    --additional_args: list = []
 ] {
     cargo build --release
-    execute --epoch_size $epoch_size --data_size $data_size --iterations $iterations --operation $operation --duration $duration --num_pe $num_pe --num_working_set $num_working_set
+    execute $operation --epoch_size $epoch_size --data_size $data_size --iterations $iterations --duration $duration --num_pe $num_pe --num_working_set $num_working_set --additional_args $additional_args
 }
 
-def single_bench [epoch_size: int, data_size: int, iterations: int, operation: string, num_pe: int = 1, duration = 2] {
+def single_bench [operation: record, epoch_size: int, data_size: int, iterations: int,  num_pe: int = 1, duration = 1, additional_args: list = []] {
     for trial in [1 2 3 4 5] {
         try {
             print $"($trial) Running with window size: ($epoch_size), data size: ($data_size), iterations: ($iterations)"
-            let output = execute --epoch_size $epoch_size --data_size $data_size --iterations $iterations --operation $operation --num_pe $num_pe --duration $duration err>| to text
+            let output = (
+                execute $operation 
+                --epoch_size $epoch_size 
+                --data_size $data_size 
+                --iterations $iterations 
+                --duration $duration 
+                --num_pe $num_pe 
+                --additional_args $additional_args 
+                err>| to text)
             print $output
             let output_lines = $output | lines
             let throughput = ($output_lines | where ($it starts-with "PE"))
@@ -59,13 +72,15 @@ def single_bench [epoch_size: int, data_size: int, iterations: int, operation: s
                 ($throughput | merge {
                     "data_size": $data_size,
                     "epoch_size": $epoch_size,
-                    "operation": $operation,
+                    ...$operation,
                     "num_pe": $num_pe,
                 })
             }
             
             print $record
     
+            sleep 2sec
+
             return $record
             break
         } catch {|err|
@@ -77,13 +92,13 @@ def single_bench [epoch_size: int, data_size: int, iterations: int, operation: s
     }
 }
 
-def nested_each [items: list<list>, f: closure, args: list = []] {
+def nested_each [items: list<list>, f: closure, args: list = [], additional_args: record = {}] {
     if ($items | length) > 0 {
         let current = $items | first
         let rest = $items | skip 1
         let records = $current | each {|item|
             let args = $args | append $item
-            return (nested_each $rest $f $args)
+            return (nested_each $rest $f $args $additional_args)
         } | flatten --all
         
         print "Records" $records
@@ -99,24 +114,51 @@ def nested_each [items: list<list>, f: closure, args: list = []] {
 def "main bench" [] {
     cargo build --release
     
-    let iterations = 30000
+    let iterations = 5000
     
     let operations = [
-        # "put"
-        # "get"
-        "put-non-blocking"
-        "get-non-blocking"
+        # ["group", "op"];
+        # ["range", "put"]
+        # ["range", "get"]
+        # ["range", "put-non-blocking"]
+        # ["range", "get-non-blocking"]
+        # ["range", "broadcast"]
     ]
-    let num_pes = [1 2 4 8 16 32 64]
+    let num_pes = [1 2 4 8 16 32]
     let epoch_sizes = [1 2 4 8 16 32 64 128 256 512 1024]
-    let data_sizes = [1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384]
+    let data_sizes = [1 64 1024 16384]
+    let duration = 3
 
-    let records = nested_each [$operations $num_pes $epoch_sizes $data_sizes] {|$operation: string num_pe: int epoch_size: int data_size: int|
-        single_bench $epoch_size $data_size $iterations $operation $num_pe
+    let records = nested_each [$operations $num_pes $epoch_sizes $data_sizes] {|$operation: record num_pe: int epoch_size: int data_size: int|
+        single_bench $operation $epoch_size $data_size $iterations $num_pe
     }
 
     print $records
 
     $records | to csv | save "throughputs.csv" -f
+
+    let epoch_sizes = [1 2 4 8 16 32 64 128]
+    let data_sizes = [1] # Atomic operations are not supported for larger data sizes
+
+    let operations = [
+        ["group", "op"];
+        ["atomic" "fetch-add32"]
+        ["atomic" "fetch-add64"]
+    ]
+
+    let records_same_location = nested_each [$operations $num_pes $epoch_sizes $data_sizes] {|$operation: record num_pe: int epoch_size: int data_size: int|
+        single_bench $operation $epoch_size $data_size $iterations $num_pe $duration []
+    }
+
+    let records_different_location = nested_each [$operations $num_pes $epoch_sizes $data_sizes] {|$operation: record num_pe: int epoch_size: int data_size: int|
+        single_bench $operation $epoch_size $data_size $iterations $num_pe $duration ["--use-different-location"]
+    }
+
+
+    print $records
+
+    $records_same_location | to csv | save "throughputs-atomic-contention.csv" -f
+    $records_different_location | to csv | save "throughputs-atomic-different-location.csv" -f
+
 }
 

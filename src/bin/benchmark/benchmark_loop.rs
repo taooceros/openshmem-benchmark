@@ -57,11 +57,11 @@ pub fn benchmark_loop<'a>(
             let source = &mut data.src_working_set[i];
             let dest = &mut data.dst_working_set[i];
 
-            let begin = Instant::now();
+            // let begin = Instant::now();
             for (src, dst) in source.iter_mut().zip(dest.iter_mut()) {
                 match operation {
                     // TODO: add validation for range operation
-                    Operation::RangeOperation(RangeOperation::Put(operation)) => {
+                    Operation::Range(RangeOperation::Put(operation)) => {
                         if my_pe < num_concurrency {
                             match operation {
                                 PutOperation::Put => {
@@ -73,7 +73,7 @@ pub fn benchmark_loop<'a>(
                             }
                         }
                     }
-                    Operation::RangeOperation(RangeOperation::Get(operation)) => {
+                    Operation::Range(RangeOperation::Get(operation)) => {
                         if my_pe >= num_concurrency {
                             match operation {
                                 GetOperation::Get => {
@@ -86,7 +86,7 @@ pub fn benchmark_loop<'a>(
                         }
                     }
 
-                    Operation::RangeOperation(RangeOperation::Broadcast) => {
+                    Operation::Range(RangeOperation::Broadcast) => {
                         if my_pe < num_concurrency {
                             src.broadcast_to(dst, num_concurrency..(num_concurrency * 2));
                         }
@@ -113,7 +113,7 @@ pub fn benchmark_loop<'a>(
                 // );
             }
 
-            let now = Instant::now();
+            // let now = Instant::now();
             // scope.barrier_all();
             if epoch % 1000 == 0 {
                 // println!("pe {my_pe} {epoch} barrier elapsed time: {}", now.elapsed().as_micros());
@@ -121,22 +121,22 @@ pub fn benchmark_loop<'a>(
 
             // let now = std::time::Instant::now();
 
-            if my_pe >= num_concurrency {
-                if let Operation::RangeOperation(_) = operation {
-                    let check_epoch = seed % epoch_size;
-                    let check_data = seed % data_size;
-                    unsafe {
-                        if source.get_unchecked(check_epoch).get_unchecked(check_data)
-                            != dest.get_unchecked(check_epoch).get_unchecked(check_data)
-                        {
-                            println!(
-                                "pe {my_pe} epoch {epoch} check failed: {:?} != {:?}",
-                                source[check_epoch], dest[check_epoch]
-                            );
-                        }
-                    }
-                }
-            }
+            // if my_pe >= num_concurrency {
+            //     if let Operation::Range(_) = operation {
+            //         let check_epoch = seed % epoch_size;
+            //         let check_data = seed % data_size;
+            //         unsafe {
+            //             if source.get_unchecked(check_epoch).get_unchecked(check_data)
+            //                 != dest.get_unchecked(check_epoch).get_unchecked(check_data)
+            //             {
+            //                 println!(
+            //                     "pe {my_pe} epoch {epoch} check failed: {:?} != {:?}",
+            //                     source[check_epoch], dest[check_epoch]
+            //                 );
+            //             }
+            //         }
+            //     }
+            // }
         }
 
         let elapsed = now.elapsed();
