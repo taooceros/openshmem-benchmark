@@ -16,7 +16,7 @@ def execute [
     let hosts = $"localhost:($num_pe),($second_host):($num_pe)"
     let operation = ( $operation | transpose | get column1)
 
-    (oshrun --wdir . --host $hosts -mca pml ucx  -mca btl ^vader,tcp,openib,uct -x UCX_NET_DEVICES=mlx5_1:1 -x RUST_BACKTRACE=1 ./target/release/benchmark
+    (oshrun --wdir . --host $hosts -mca pml ucx  -mca btl ^vader,tcp,openib,uct -x UCX_NET_DEVICES=mlx5_0:1 -x RUST_BACKTRACE=1 ./target/release/benchmark
         ...$operation
         --epoch-size $epoch_size
         -s $data_size
@@ -31,12 +31,12 @@ def "main" [] {
 }
 
 def "main test" [
-    --epoch_size (-e): int = 1
-    --data_size (-s): int = 1
-    --iterations (-i): int = 50000
-    --operation (-o): record = { "group": "range", "operation": "put" }
-    --duration: int = 3
-    --num_pe: int = 32
+    --epoch_size (-e): int = 4096
+    --data_size (-s): int = 8
+    --iterations (-i): int = 1000
+    --operation (-o): record = { "group": "range", "operation": "put-non-blocking" }
+    --duration: int = 10
+    --num_pe: int = 1
     --num_working_set: int = 1
     --additional_args: list = []
 ] {
@@ -92,7 +92,7 @@ def single_bench [operation: record, epoch_size: int, data_size: int, iterations
     }
 }
 
-def nested_each [items: list<list>, f: closure, args: list = [], additional_args: record = {}] {
+def nested_each [items, f: closure, args: list = [], additional_args: record = {}] {
     if ($items | length) > 0 {
         let current = $items | first
         let rest = $items | skip 1
@@ -117,16 +117,16 @@ def "main bench" [] {
     let iterations = 5000
     
     let operations = [
-        # ["group", "op"];
-        # ["range", "put"]
-        # ["range", "get"]
-        # ["range", "put-non-blocking"]
-        # ["range", "get-non-blocking"]
-        # ["range", "broadcast"]
+        ["group", "op"];
+        ["range", "put"]
+        ["range", "get"]
+        ["range", "put-non-blocking"]
+        ["range", "get-non-blocking"]
+        ["range", "broadcast"]
     ]
     let num_pes = [1 2 4 8 16 32]
-    let epoch_sizes = [1 2 4 8 16 32 64 128 256 512 1024]
-    let data_sizes = [1 64 1024 16384]
+    let epoch_sizes = [ 1024 2048 4096 8192 ]
+    let data_sizes = [1 8 64 128 1024 4096]
     let duration = 3
 
     let records = nested_each [$operations $num_pes $epoch_sizes $data_sizes] {|$operation: record num_pe: int epoch_size: int data_size: int|
@@ -142,8 +142,8 @@ def "main bench" [] {
 
     let operations = [
         ["group", "op"];
-        ["atomic" "fetch-add32"]
-        ["atomic" "fetch-add64"]
+        # ["atomic" "fetch-add32"]
+        # ["atomic" "fetch-add64"]
     ]
 
     let records_same_location = nested_each [$operations $num_pes $epoch_sizes $data_sizes] {|$operation: record num_pe: int epoch_size: int data_size: int|
