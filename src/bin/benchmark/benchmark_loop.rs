@@ -63,24 +63,26 @@ pub fn benchmark_loop<'a>(
                     // TODO: add validation for range operation
                     Operation::Range(RangeOperation::Put(operation)) => {
                         if my_pe < num_concurrency {
+                            let target_pe = my_pe + num_concurrency;
                             match operation {
                                 PutOperation::Put => {
-                                    src.put_to(dst, (my_pe + num_concurrency) as i32);
+                                    src.put_to(dst, target_pe as i32);
                                 }
                                 PutOperation::PutNonBlocking => {
-                                    src.put_to_nbi(dst, (my_pe + num_concurrency) as i32);
+                                    src.put_to_nbi(dst, target_pe as i32);
                                 }
                             }
                         }
                     }
                     Operation::Range(RangeOperation::Get(operation)) => {
                         if my_pe >= num_concurrency {
+                            let target_pe = my_pe - num_concurrency;
                             match operation {
                                 GetOperation::Get => {
-                                    src.get_from(dst, (my_pe + num_concurrency) as i32);
+                                    src.get_from(dst, target_pe as i32);
                                 }
                                 GetOperation::GetNonBlocking => {
-                                    src.get_from_nbi(dst, (my_pe + num_concurrency) as i32);
+                                    src.get_from_nbi(dst, target_pe as i32);
                                 }
                             }
                         }
@@ -91,8 +93,15 @@ pub fn benchmark_loop<'a>(
                             src.broadcast_to(dst, num_concurrency..(num_concurrency * 2));
                         }
                     }
-                    Operation::Atomic { op: operation, use_different_location } => {
-                        let target_pe = if !use_different_location { 0 } else { my_pe % num_concurrency };
+                    Operation::Atomic {
+                        op: operation,
+                        use_different_location,
+                    } => {
+                        let target_pe = if !use_different_location {
+                            0
+                        } else {
+                            my_pe % num_concurrency
+                        };
 
                         match operation {
                             AtomicOperation::FetchAdd32 => {
