@@ -123,7 +123,7 @@ pub fn benchmark_loop<'a>(
             }
 
             // let now = Instant::now();
-            // scope.barrier_all();
+            scope.barrier_all();
             if epoch % 1000 == 0 {
                 // println!("pe {my_pe} {epoch} barrier elapsed time: {}", now.elapsed().as_micros());
             }
