@@ -22,8 +22,10 @@ pub enum Operation {
 
 pub enum RangeOperation {
     #[command(flatten)]
+    #[strum(to_string = "{0}")]
     Put(PutOperation),
     #[command(flatten)]
+    #[strum(to_string = "{0}")]
     Get(GetOperation),
     Broadcast,
 }
