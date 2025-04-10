@@ -152,11 +152,12 @@ pub fn benchmark_loop<'a>(
 
         let total_messages = epoch_per_iteration * epoch_size;
         let throughput = total_messages as f64 / elapsed.as_secs_f64();
-        // println!(
-        //     "Throughput on Machine {my_pe}: {:.2} messages/second",
-        //     throughput
-        // );
-
+        if my_pe < num_concurrency {
+            println!(
+                "Throughput on Machine {my_pe}: {:.2} messages/second",
+                throughput
+            );
+        }
 
         if final_throughput == 0.0 || running.load(std::sync::atomic::Ordering::Relaxed) {
             final_throughput = throughput;
