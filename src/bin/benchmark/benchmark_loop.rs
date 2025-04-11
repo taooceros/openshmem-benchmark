@@ -89,7 +89,8 @@ pub fn benchmark_loop<'a>(
                     }
 
                     Operation::Range(RangeOperation::Broadcast) => {
-                        if my_pe < num_concurrency {
+                        // only test broadcast for the first pe
+                        if my_pe == 0 {
                             src.broadcast_to(dst, num_concurrency..(num_concurrency * 2));
                         }
                     }
@@ -157,6 +158,11 @@ pub fn benchmark_loop<'a>(
                 "Throughput on Machine {my_pe}: {:.2} messages/second",
                 throughput
             );
+        }
+
+        if operation == Operation::Range(RangeOperation::Broadcast) && my_pe != 0 {
+            // skip other pes when testing broadcast
+            continue;
         }
 
         if final_throughput == 0.0 || running.load(std::sync::atomic::Ordering::Relaxed) {
