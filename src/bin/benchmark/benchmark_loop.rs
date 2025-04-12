@@ -64,7 +64,7 @@ pub fn lantency_loop<'a>(
         if my_pe >= num_concurrency {
             let latency = now.elapsed();
 
-            if final_latency == Duration::ZERO
+            if final_latency == 0.0
                 || running.load(std::sync::atomic::Ordering::Relaxed)
             {
                 println!(
