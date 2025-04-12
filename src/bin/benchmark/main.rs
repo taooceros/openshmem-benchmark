@@ -18,7 +18,9 @@ use openshmem_benchmark::osm_vec::ShVec;
 
 use layout::RangeBenchmarkData;
 use openshmem_sys::num_pes;
-use ops::{AtomicOperation, GetOperation, Operation, PutOperation, RangeOperation};
+use ops::{
+    AtomicOperation, BroadcastOperation, GetOperation, Operation, PutOperation, RangeOperation,
+};
 
 mod benchmark_loop;
 mod layout;
@@ -120,7 +122,7 @@ fn benchmark(cli: &Config) {
 
     // When doing broadcast, let's try to use different memory locations for each PE
     let num_memory_location = match operation {
-        Operation::Range(RangeOperation::Broadcast) => num_concurrency,
+        Operation::Range(RangeOperation::Broadcast(_)) => num_concurrency,
         _ => 1,
     };
 
@@ -137,12 +139,13 @@ fn benchmark(cli: &Config) {
     let my_pe = scope.my_pe() as usize % num_concurrency;
 
     let data_id = match operation {
-        Operation::Range(RangeOperation::Broadcast) => my_pe,
+        Operation::Range(RangeOperation::Broadcast(_)) => my_pe,
         _ => 0,
     };
 
-    let final_result =
-        if operation == Operation::Range(RangeOperation::Get(GetOperation::GetLatency)) {
+    let final_result = match operation {
+        Operation::Range(RangeOperation::Get(GetOperation::GetLatency))
+        | Operation::Range(RangeOperation::Broadcast(BroadcastOperation::BroadcastLatency)) => {
             lantency_loop(
                 &scope,
                 local_running,
@@ -151,16 +154,16 @@ fn benchmark(cli: &Config) {
                 cli.epoch_per_iteration,
                 &mut datas[data_id],
             )
-        } else {
-            bandwidth_loop()
-                .scope(&scope)
-                .local_running(local_running.clone())
-                .running(&mut running)
-                .operation(operation)
-                .epoch_per_iteration(cli.epoch_per_iteration)
-                .data(&mut datas[data_id])
-                .call()
-        };
+        }
+        _ => bandwidth_loop()
+            .scope(&scope)
+            .local_running(local_running.clone())
+            .running(&mut running)
+            .operation(operation)
+            .epoch_per_iteration(cli.epoch_per_iteration)
+            .data(&mut datas[data_id])
+            .call(),
+    };
 
     output(&scope, num_concurrency, final_result, &cli);
 }
@@ -183,7 +186,8 @@ fn output(scope: &OsmScope, num_concurrency: usize, final_result: f64, config: &
                 my_throughput.put_to_nbi(&mut results[my_pe], 0);
             }
         }
-        Operation::Range(RangeOperation::Put(_)) | Operation::Range(RangeOperation::Broadcast) => {
+        Operation::Range(RangeOperation::Put(_))
+        | Operation::Range(RangeOperation::Broadcast(_)) => {
             // only sync half the pe
             if my_pe < num_concurrency {
                 my_throughput.put_to_nbi(&mut results[my_pe], 0);

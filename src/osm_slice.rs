@@ -4,7 +4,9 @@ use std::{
 };
 
 use openshmem_sys::{
-    shmem_broadcastmem, shmem_getmem, shmem_getmem_nbi, shmem_int_atomic_fetch_add, shmem_int_fadd, shmem_long_atomic_fetch_add, shmem_putmem, shmem_putmem_nbi, shmem_team_t
+    SHMEM_BARRIER_SYNC_SIZE, shmem_barrier, shmem_broadcastmem, shmem_getmem, shmem_getmem_nbi,
+    shmem_int_atomic_fetch_add, shmem_int_broadcast, shmem_int_fadd, shmem_long_atomic_fetch_add,
+    shmem_putmem, shmem_putmem_nbi, shmem_team_t,
 };
 
 use crate::osm_wrapper::OsmWrapper;
@@ -103,12 +105,17 @@ impl<T> OsmSlice<T> {
         }
     }
 
-    pub fn broadcast_to<I>(&self, other: &mut Self, target_pes: impl Iterator<Item = I>)
-    where
-        I: TryInto<i32>,
-        <I as TryInto<i32>>::Error: std::fmt::Debug,
+    pub fn broadcast_to_nbi(
+        &self,
+        other: &mut Self,
+        pe_start: i32,
+        log_pe_stride: i32,
+        pe_size: i32,
+    )
     {
         unsafe {
+            let target_pes = (0..pe_size).map(|i| pe_start + i as i32 * (1 << log_pe_stride));
+
             for target_pe in target_pes {
                 shmem_putmem_nbi(
                     other.as_mut_ptr().cast(),
@@ -119,6 +126,30 @@ impl<T> OsmSlice<T> {
                         .expect("Failed to convert target_pe to i32"),
                 );
             }
+        }
+    }
+
+    pub fn broadcast_to(
+        &self,
+        other: &mut Self,
+        pe_start: i32,
+        log_pe_stride: i32,
+        pe_size: i32,
+    ) {
+        unsafe {
+            let target_pes = (0..pe_size).map(|i| pe_start + i as i32 * (1 << log_pe_stride));
+            for target_pe in target_pes {
+                shmem_putmem_nbi(
+                    other.as_mut_ptr().cast(),
+                    self.as_ptr().cast(),
+                    std::mem::size_of::<T>() * self.len(),
+                    target_pe,
+                );
+            }
+
+            let mut p_sync = vec![0u32; (SHMEM_BARRIER_SYNC_SIZE * pe_size as u32) as usize];
+
+            shmem_barrier(pe_start, pe_size, log_pe_stride, p_sync.as_mut_ptr().cast());
         }
     }
 

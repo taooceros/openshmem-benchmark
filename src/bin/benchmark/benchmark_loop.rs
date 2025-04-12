@@ -10,7 +10,10 @@ use openshmem_benchmark::{osm_box::OsmBox, osm_scope};
 
 use crate::{
     RangeBenchmarkData,
-    ops::{self, AtomicOperation, GetOperation, Operation, PutOperation, RangeOperation},
+    ops::{
+        self, AtomicOperation, BroadcastOperation, GetOperation, Operation, PutOperation,
+        RangeOperation,
+    },
 };
 
 pub fn lantency_loop<'a>(
@@ -44,10 +47,6 @@ pub fn lantency_loop<'a>(
         let now = Instant::now();
 
         for epoch in 0..(epoch_per_iteration) {
-            if operation != Operation::Range(RangeOperation::Get(GetOperation::GetLatency)) {
-                panic!("Latency test only supports GetLatency operation");
-            }
-
             seed = (1 + seed * 7) % PRIME;
 
             let i = seed % num_working_set;
@@ -56,24 +55,34 @@ pub fn lantency_loop<'a>(
 
             let dest = &mut data.dst_working_set[i][0];
 
-            if my_pe >= num_concurrency {
-                dest.get_from(source, (my_pe - num_concurrency) as i32);
+            match operation {
+                Operation::Range(RangeOperation::Get(GetOperation::GetLatency)) => {
+                    if my_pe >= num_concurrency {
+                        dest.get_from(source, (my_pe - num_concurrency) as i32);
+                    }
+                }
+                Operation::Range(RangeOperation::Broadcast(BroadcastOperation::BroadcastLatency)) => {
+                    if my_pe == 0 {
+                        dest.broadcast_to(source, num_concurrency as i32, 0, num_concurrency as i32);
+                    }
+                }
+                _ => unreachable!("This operation should not be here. {operation:?}"),
             }
         }
 
-        if my_pe >= num_concurrency {
-            let latency = now.elapsed();
-
-            if final_latency == 0.0
-                || running.load(std::sync::atomic::Ordering::Relaxed)
-            {
-                println!(
-                    "Latency on Machine {my_pe}: {:.2} microseconds",
-                    latency.as_nanos() as f64 / epoch_per_iteration as f64 / 1000.0
-                );
-                final_latency = latency.as_nanos() as f64 / epoch_per_iteration as f64 / 1000.0;
+        match operation {
+            Operation::Range(RangeOperation::Get(GetOperation::GetLatency)) => {
+                if my_pe < num_concurrency {
+                    record_latency(running, epoch_per_iteration, &mut final_latency, now, my_pe);
+                }
             }
-        }
+            Operation::Range(RangeOperation::Broadcast(BroadcastOperation::BroadcastLatency)) => {
+                if my_pe == 0 {
+                    record_latency(running, epoch_per_iteration, &mut final_latency, now, my_pe);
+                }
+            }
+            _ => unreachable!("This operation should not be here."),
+        }   
 
         // let only the main pe to stop others
         if !local_running.load(std::sync::atomic::Ordering::Relaxed) && my_pe == 0 {
@@ -86,6 +95,18 @@ pub fn lantency_loop<'a>(
     }
 
     final_latency
+}
+
+fn record_latency<'a>(running: &mut OsmBox<'a, AtomicBool>, epoch_per_iteration: usize, final_latency: &mut f64, now: Instant, my_pe: usize) {
+    let latency = now.elapsed();
+
+    if *final_latency == 0.0 || running.load(std::sync::atomic::Ordering::Relaxed) {
+        println!(
+            "Latency on Machine {my_pe}: {:.2} microseconds",
+            latency.as_nanos() as f64 / epoch_per_iteration as f64 / 1000.0
+        );
+        *final_latency = latency.as_nanos() as f64 / epoch_per_iteration as f64 / 1000.0;
+    }
 }
 
 #[builder]
@@ -166,12 +187,31 @@ pub fn bandwidth_loop<'a>(
                         }
                     }
 
-                    Operation::Range(RangeOperation::Broadcast) => {
-                        // only test broadcast for the first pe
-                        if my_pe == 0 {
-                            src.broadcast_to(dst, num_concurrency..(num_concurrency * 2));
+                    Operation::Range(RangeOperation::Broadcast(operation)) => match operation {
+                        BroadcastOperation::Broadcast => {
+                            if my_pe < num_concurrency {
+                                src.broadcast_to(
+                                    dst,
+                                    num_concurrency as i32,
+                                    0,
+                                    num_concurrency as i32,
+                                );
+                            }
                         }
-                    }
+                        BroadcastOperation::BroadcastNonBlocking => {
+                            if my_pe < num_concurrency {
+                                src.broadcast_to_nbi(
+                                    dst,
+                                    num_concurrency as i32,
+                                    0,
+                                    num_concurrency as i32,
+                                );
+                            }
+                        }
+                        BroadcastOperation::BroadcastLatency => {
+                            unreachable!("BroadcastLatency should not be here.")
+                        }
+                    },
                     Operation::Atomic {
                         op: operation,
                         use_different_location,
@@ -238,9 +278,11 @@ pub fn bandwidth_loop<'a>(
             );
         }
 
-        if operation == Operation::Range(RangeOperation::Broadcast) && my_pe != 0 {
-            // skip other pes when testing broadcast
-            continue;
+        if let Operation::Range(RangeOperation::Broadcast(_)) = operation {
+            if my_pe != 0 {
+                // skip other pes when testing broadcast
+                continue;
+            }
         }
 
         if final_throughput == 0.0 || running.load(std::sync::atomic::Ordering::Relaxed) {

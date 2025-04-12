@@ -27,7 +27,16 @@ pub enum RangeOperation {
     #[command(flatten)]
     #[strum(to_string = "{0}")]
     Get(GetOperation),
+    #[command(flatten)]
+    #[strum(to_string = "{0}")]
+    Broadcast(BroadcastOperation),
+}
+
+#[derive(Subcommand, Debug, Clone, Copy, Display, PartialEq, Eq)]
+pub enum BroadcastOperation {
     Broadcast,
+    BroadcastNonBlocking,
+    BroadcastLatency,
 }
 
 #[derive(Subcommand, Debug, Clone, Copy, Display, PartialEq, Eq)]
