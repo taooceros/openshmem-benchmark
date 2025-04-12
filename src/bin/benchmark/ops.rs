@@ -36,7 +36,6 @@ pub enum RangeOperation {
 pub enum BroadcastOperation {
     Broadcast,
     BroadcastNonBlocking,
-    BroadcastLatency,
 }
 
 #[derive(Subcommand, Debug, Clone, Copy, Display, PartialEq, Eq)]
@@ -49,13 +48,10 @@ pub enum PutOperation {
 pub enum GetOperation {
     Get,
     GetNonBlocking,
-    GetLatency,
 }
 
 #[derive(Subcommand, Debug, Clone, Copy, Display, PartialEq, Eq)]
 pub enum AtomicOperation {
     FetchAdd32,
     FetchAdd64,
-    FetchAdd32Latency,
-    FetchAdd64Latency,
 }

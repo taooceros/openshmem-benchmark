@@ -16,6 +16,7 @@ use crate::{
     },
 };
 
+#[builder]
 pub fn lantency_loop<'a>(
     scope: &osm_scope::OsmScope,
     local_running: Arc<AtomicBool>,
@@ -56,14 +57,12 @@ pub fn lantency_loop<'a>(
             let dest = &mut data.dst_working_set[i][0];
 
             match operation {
-                Operation::Range(RangeOperation::Get(GetOperation::GetLatency)) => {
+                Operation::Range(RangeOperation::Get(GetOperation::Get)) => {
                     if my_pe >= num_concurrency {
                         dest.get_from(source, (my_pe - num_concurrency) as i32);
                     }
                 }
-                Operation::Range(RangeOperation::Broadcast(
-                    BroadcastOperation::BroadcastLatency,
-                )) => {
+                Operation::Range(RangeOperation::Broadcast(BroadcastOperation::Broadcast)) => {
                     if my_pe == 0 {
                         dest.broadcast_to(
                             source,
@@ -83,10 +82,10 @@ pub fn lantency_loop<'a>(
                         0
                     };
                     match op {
-                        AtomicOperation::FetchAdd32Latency => {
+                        AtomicOperation::FetchAdd32 => {
                             dest.fetch_add_i32(1, target_pe);
                         }
-                        AtomicOperation::FetchAdd64Latency => {
+                        AtomicOperation::FetchAdd64 => {
                             dest.fetch_add_i64(1, target_pe);
                         }
                         _ => unreachable!("This operation should not be here."),
@@ -97,12 +96,12 @@ pub fn lantency_loop<'a>(
         }
 
         match operation {
-            Operation::Range(RangeOperation::Get(GetOperation::GetLatency)) => {
+            Operation::Range(RangeOperation::Get(GetOperation::Get)) => {
                 if my_pe >= num_concurrency {
                     record_latency(running, epoch_per_iteration, &mut final_latency, now, my_pe);
                 }
             }
-            Operation::Range(RangeOperation::Broadcast(BroadcastOperation::BroadcastLatency)) => {
+            Operation::Range(RangeOperation::Broadcast(BroadcastOperation::Broadcast)) => {
                 if my_pe == 0 {
                     record_latency(running, epoch_per_iteration, &mut final_latency, now, my_pe);
                 }
@@ -216,9 +215,6 @@ pub fn bandwidth_loop<'a>(
                                 GetOperation::GetNonBlocking => {
                                     src.get_from_nbi(dst, target_pe as i32);
                                 }
-                                GetOperation::GetLatency => {
-                                    unreachable!("GetLatency should not be here.")
-                                }
                             }
                         }
                     }
@@ -244,9 +240,6 @@ pub fn bandwidth_loop<'a>(
                                 );
                             }
                         }
-                        BroadcastOperation::BroadcastLatency => {
-                            unreachable!("BroadcastLatency should not be here.")
-                        }
                     },
                     Operation::Atomic {
                         op: operation,
@@ -265,7 +258,6 @@ pub fn bandwidth_loop<'a>(
                             AtomicOperation::FetchAdd64 => {
                                 dst.fetch_add_i64(seed as i64, target_pe as i32);
                             }
-                            _ => unreachable!("This operation should not be here. {operation:?}"),
                         }
                     }
                 };
