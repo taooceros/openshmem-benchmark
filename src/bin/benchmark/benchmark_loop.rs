@@ -2,7 +2,7 @@ use std::{
     mem::transmute,
     ops::Deref,
     sync::{Arc, atomic::AtomicBool},
-    time::Instant,
+    time::{Duration, Instant},
 };
 
 use bon::builder;
@@ -13,8 +13,83 @@ use crate::{
     ops::{self, AtomicOperation, GetOperation, Operation, PutOperation, RangeOperation},
 };
 
+pub fn lantency_loop<'a>(
+    scope: &osm_scope::OsmScope,
+    local_running: Arc<AtomicBool>,
+    running: &mut OsmBox<'a, AtomicBool>,
+    operation: Operation,
+    epoch_per_iteration: usize,
+    data: &mut RangeBenchmarkData<'a>,
+) -> Duration {
+    let mut final_latency = Duration::ZERO;
+
+    let my_pe = scope.my_pe() as usize;
+    let num_pe = scope.num_pes() as usize;
+    let num_concurrency = (num_pe / 2) as usize;
+
+    let epoch_size = data.epoch_size();
+    let data_size = data.data_size();
+    const PRIME: usize = 1_000_000_007;
+    let mut seed = 0;
+    let num_working_set = data.num_working_set();
+    let false_signal = OsmBox::new(AtomicBool::new(false), &scope);
+
+    loop {
+        scope.barrier_all();
+
+        if !running.load(std::sync::atomic::Ordering::SeqCst) {
+            break;
+        }
+
+        let now = Instant::now();
+
+        for epoch in 0..(epoch_per_iteration) {
+            if operation != Operation::Range(RangeOperation::Get(GetOperation::GetLatency)) {
+                panic!("Latency test only supports GetLatency operation");
+            }
+
+            seed = (1 + seed * 7) % PRIME;
+
+            let i = seed % num_working_set;
+
+            let source = &mut data.src_working_set[i][0];
+
+            let dest = &mut data.dst_working_set[i][0];
+
+            if my_pe >= num_concurrency {
+                dest.get_from(source, (my_pe - num_concurrency) as i32);
+            }
+        }
+
+        if my_pe >= num_concurrency {
+            let latency = now.elapsed();
+
+            if final_latency == Duration::ZERO
+                || running.load(std::sync::atomic::Ordering::Relaxed)
+            {
+                println!(
+                    "Latency on Machine {my_pe}: {} microseconds",
+                    latency.as_micros() / epoch_per_iteration as u128
+                );
+                final_latency = latency;
+            }
+        }
+
+        // let only the main pe to stop others
+        if !local_running.load(std::sync::atomic::Ordering::Relaxed) && my_pe == 0 {
+            // set the running flag to false
+            for i in 0..num_pe as i32 {
+                println!("pe {}: stopping pe {}", scope.my_pe(), i);
+                false_signal.put_to_nbi(running, i);
+            }
+        }
+    }
+
+    final_latency
+}
+
 #[builder]
-pub fn benchmark_loop<'a>(
+pub fn bandwidth_loop<'a>(
     scope: &osm_scope::OsmScope,
     local_running: Arc<AtomicBool>,
     running: &mut OsmBox<'a, AtomicBool>,
@@ -83,6 +158,9 @@ pub fn benchmark_loop<'a>(
                                 }
                                 GetOperation::GetNonBlocking => {
                                     src.get_from_nbi(dst, target_pe as i32);
+                                }
+                                GetOperation::GetLatency => {
+                                    unreachable!("GetLatency should not be here.")
                                 }
                             }
                         }

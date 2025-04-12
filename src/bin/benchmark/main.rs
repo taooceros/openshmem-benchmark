@@ -1,12 +1,13 @@
 #![feature(allocator_api)]
 
-use crate::benchmark_loop::benchmark_loop;
+use crate::benchmark_loop::bandwidth_loop;
 use std::iter::repeat_with;
 use std::ops::Deref;
 use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::time::Instant;
 
+use benchmark_loop::lantency_loop;
 use bon::builder;
 use clap::Parser;
 use libc::gethostname;
@@ -16,7 +17,7 @@ use openshmem_benchmark::osm_scope::OsmScope;
 use openshmem_benchmark::osm_vec::ShVec;
 
 use layout::RangeBenchmarkData;
-use ops::{AtomicOperation, Operation, RangeOperation};
+use ops::{AtomicOperation, GetOperation, Operation, RangeOperation};
 
 mod benchmark_loop;
 mod layout;
@@ -139,18 +140,30 @@ fn benchmark(cli: &Config) {
         _ => 0,
     };
 
-    let final_throughput = benchmark_loop()
-        .scope(&scope)
-        .local_running(local_running.clone())
-        .running(&mut running)
-        .operation(operation)
-        .epoch_per_iteration(cli.epoch_per_iteration)
-        .data(&mut datas[data_id])
-        .call();
+    if operation == Operation::Range(RangeOperation::Get(GetOperation::GetLatency)) {
+        let final_latency = lantency_loop(
+            &scope,
+            local_running,
+            &mut running,
+            operation,
+            cli.epoch_per_iteration,
+            &mut datas[data_id],
+        );
+        println!("Final latency: {:?}", final_latency);
+    } else {
+        let final_throughput = bandwidth_loop()
+            .scope(&scope)
+            .local_running(local_running.clone())
+            .running(&mut running)
+            .operation(operation)
+            .epoch_per_iteration(cli.epoch_per_iteration)
+            .data(&mut datas[data_id])
+            .call();
 
-    println!("pe {}: stopping benchmark", scope.my_pe());
+        println!("pe {}: stopping benchmark", scope.my_pe());
 
-    output(&scope, num_concurrency, final_throughput, &cli);
+        output(&scope, num_concurrency, final_throughput, &cli);
+    }
 }
 
 fn output(scope: &OsmScope, num_concurrency: usize, final_throughput: f64, config: &Config) {

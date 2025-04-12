@@ -40,6 +40,7 @@ pub enum PutOperation {
 pub enum GetOperation {
     Get,
     GetNonBlocking,
+    GetLatency,
 }
 
 #[derive(Subcommand, Debug, Clone, Copy, Display, PartialEq, Eq)]
