@@ -171,9 +171,9 @@ fn output(scope: &OsmScope, num_concurrency: usize, final_result: f64, config: &
     let my_pe = scope.my_pe() as usize;
     let op = config.operation;
 
-    let mut throughputs = ShVec::with_capacity(num_concurrency * 2, &scope);
+    let mut results = ShVec::with_capacity(num_concurrency * 2, &scope);
 
-    throughputs.resize_with(num_concurrency, || 0.0);
+    results.resize_with(num_concurrency * 2, || 0.0);
 
     let my_throughput = OsmBox::new(final_result, &scope);
 
@@ -181,17 +181,17 @@ fn output(scope: &OsmScope, num_concurrency: usize, final_result: f64, config: &
         Operation::Range(RangeOperation::Get(_)) => {
             // only sync half the pe
             if my_pe >= num_concurrency {
-                my_throughput.put_to_nbi(&mut throughputs[my_pe], 0);
+                my_throughput.put_to_nbi(&mut results[my_pe], 0);
             }
         }
         Operation::Range(RangeOperation::Put(_)) | Operation::Range(RangeOperation::Broadcast) => {
             // only sync half the pe
             if my_pe < num_concurrency {
-                my_throughput.put_to_nbi(&mut throughputs[my_pe], 0);
+                my_throughput.put_to_nbi(&mut results[my_pe], 0);
             }
         }
         Operation::Atomic { .. } => {
-            my_throughput.put_to_nbi(&mut throughputs[my_pe], 0);
+            my_throughput.put_to_nbi(&mut results[my_pe], 0);
         }
     }
 
@@ -201,14 +201,14 @@ fn output(scope: &OsmScope, num_concurrency: usize, final_result: f64, config: &
     if scope.my_pe() == 0 {
         println!("Throughput on all PEs:");
         for i in 0..(num_concurrency * 2) {
-            if *throughputs[i] == 0.0 {
+            if *results[i] == 0.0 {
                 continue;
             }
-            eprintln!("PE {}: {:.2} messages/second", i, throughputs[i].deref());
+            eprintln!("PE {}: {:.2} messages/second", i, results[i].deref());
             println!(
                 "PE {}: {:.2} Gbps",
                 i,
-                throughputs[i].deref() * config.size as f64 / 1_000_000_000.0 * 8.0
+                results[i].deref() * config.size as f64 / 1_000_000_000.0 * 8.0
             );
         }
     }
