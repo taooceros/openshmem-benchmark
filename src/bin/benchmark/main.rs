@@ -17,7 +17,8 @@ use openshmem_benchmark::osm_scope::OsmScope;
 use openshmem_benchmark::osm_vec::ShVec;
 
 use layout::RangeBenchmarkData;
-use ops::{AtomicOperation, GetOperation, Operation, RangeOperation};
+use openshmem_sys::num_pes;
+use ops::{AtomicOperation, GetOperation, Operation, PutOperation, RangeOperation};
 
 mod benchmark_loop;
 mod layout;
@@ -140,25 +141,27 @@ fn benchmark(cli: &Config) {
         _ => 0,
     };
 
-    let final_result = if operation == Operation::Range(RangeOperation::Get(GetOperation::GetLatency)) {
-        lantency_loop(
-            &scope,
-            local_running,
-            &mut running,
-            operation,
-            cli.epoch_per_iteration,
-            &mut datas[data_id],
-        ).as_nanos() as f64
-    } else {
-        bandwidth_loop()
-            .scope(&scope)
-            .local_running(local_running.clone())
-            .running(&mut running)
-            .operation(operation)
-            .epoch_per_iteration(cli.epoch_per_iteration)
-            .data(&mut datas[data_id])
-            .call()
-    };
+    let final_result =
+        if operation == Operation::Range(RangeOperation::Get(GetOperation::GetLatency)) {
+            lantency_loop(
+                &scope,
+                local_running,
+                &mut running,
+                operation,
+                cli.epoch_per_iteration,
+                &mut datas[data_id],
+            )
+            .as_nanos() as f64
+        } else {
+            bandwidth_loop()
+                .scope(&scope)
+                .local_running(local_running.clone())
+                .running(&mut running)
+                .operation(operation)
+                .epoch_per_iteration(cli.epoch_per_iteration)
+                .data(&mut datas[data_id])
+                .call()
+        };
 
     output(&scope, num_concurrency, final_result, &cli);
 }
@@ -166,6 +169,7 @@ fn benchmark(cli: &Config) {
 fn output(scope: &OsmScope, num_concurrency: usize, final_result: f64, config: &Config) {
     // eprintln!("Final throughput: {:.2} messages/second", final_throughput);
     let my_pe = scope.my_pe() as usize;
+    let op = config.operation;
 
     let mut throughputs = ShVec::with_capacity(num_concurrency, &scope);
 
@@ -173,9 +177,22 @@ fn output(scope: &OsmScope, num_concurrency: usize, final_result: f64, config: &
 
     let my_throughput = OsmBox::new(final_result, &scope);
 
-    // only sync half the pe
-    if my_pe < num_concurrency {
-        my_throughput.put_to_nbi(&mut throughputs[my_pe], 0);
+    match op {
+        Operation::Range(RangeOperation::Get(_)) => {
+            // only sync half the pe
+            if my_pe >= num_concurrency {
+                my_throughput.put_to_nbi(&mut throughputs[my_pe], 0);
+            }
+        }
+        Operation::Range(RangeOperation::Put(_)) | Operation::Range(RangeOperation::Broadcast) => {
+            // only sync half the pe
+            if my_pe < num_concurrency {
+                my_throughput.put_to_nbi(&mut throughputs[my_pe], 0);
+            }
+        }
+        Operation::Atomic { .. } => {
+            my_throughput.put_to_nbi(&mut throughputs[my_pe], 0);
+        }
     }
 
     // println!("pe {}: waiting for others", scope.my_pe());
@@ -183,7 +200,10 @@ fn output(scope: &OsmScope, num_concurrency: usize, final_result: f64, config: &
     scope.barrier_all();
     if scope.my_pe() == 0 {
         println!("Throughput on all PEs:");
-        for i in 0..num_concurrency {
+        for i in 0..(num_concurrency * 2) {
+            if *throughputs[i] == 0.0 {
+                continue;
+            }
             eprintln!("PE {}: {:.2} messages/second", i, throughputs[i].deref());
             println!(
                 "PE {}: {:.2} Gbps",
