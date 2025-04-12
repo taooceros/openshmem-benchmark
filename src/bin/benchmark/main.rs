@@ -140,33 +140,30 @@ fn benchmark(cli: &Config) {
         _ => 0,
     };
 
-    if operation == Operation::Range(RangeOperation::Get(GetOperation::GetLatency)) {
-        let final_latency = lantency_loop(
+    let final_result = if operation == Operation::Range(RangeOperation::Get(GetOperation::GetLatency)) {
+        lantency_loop(
             &scope,
             local_running,
             &mut running,
             operation,
             cli.epoch_per_iteration,
             &mut datas[data_id],
-        );
-        println!("Final latency: {:?}", final_latency);
+        ).as_nanos() as f64
     } else {
-        let final_throughput = bandwidth_loop()
+        bandwidth_loop()
             .scope(&scope)
             .local_running(local_running.clone())
             .running(&mut running)
             .operation(operation)
             .epoch_per_iteration(cli.epoch_per_iteration)
             .data(&mut datas[data_id])
-            .call();
+            .call()
+    };
 
-        println!("pe {}: stopping benchmark", scope.my_pe());
-
-        output(&scope, num_concurrency, final_throughput, &cli);
-    }
+    output(&scope, num_concurrency, final_result, &cli);
 }
 
-fn output(scope: &OsmScope, num_concurrency: usize, final_throughput: f64, config: &Config) {
+fn output(scope: &OsmScope, num_concurrency: usize, final_result: f64, config: &Config) {
     // eprintln!("Final throughput: {:.2} messages/second", final_throughput);
     let my_pe = scope.my_pe() as usize;
 
@@ -174,7 +171,7 @@ fn output(scope: &OsmScope, num_concurrency: usize, final_throughput: f64, confi
 
     throughputs.resize_with(num_concurrency, || 0.0);
 
-    let my_throughput = OsmBox::new(final_throughput, &scope);
+    let my_throughput = OsmBox::new(final_result, &scope);
 
     // only sync half the pe
     if my_pe < num_concurrency {

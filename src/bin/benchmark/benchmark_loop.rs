@@ -68,8 +68,8 @@ pub fn lantency_loop<'a>(
                 || running.load(std::sync::atomic::Ordering::Relaxed)
             {
                 println!(
-                    "Latency on Machine {my_pe}: {} microseconds",
-                    latency.as_micros() / epoch_per_iteration as u128
+                    "Latency on Machine {my_pe}: {:.2} microseconds",
+                    latency.as_nanos() as f64 / epoch_per_iteration as f64 / 1000.0
                 );
                 final_latency = latency;
             }
