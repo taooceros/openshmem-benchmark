@@ -20,8 +20,8 @@ pub fn lantency_loop<'a>(
     operation: Operation,
     epoch_per_iteration: usize,
     data: &mut RangeBenchmarkData<'a>,
-) -> Duration {
-    let mut final_latency = Duration::ZERO;
+) -> f64 {
+    let mut final_latency = 0.0;
 
     let my_pe = scope.my_pe() as usize;
     let num_pe = scope.num_pes() as usize;
@@ -71,7 +71,7 @@ pub fn lantency_loop<'a>(
                     "Latency on Machine {my_pe}: {:.2} microseconds",
                     latency.as_nanos() as f64 / epoch_per_iteration as f64 / 1000.0
                 );
-                final_latency = latency;
+                final_latency = latency.as_nanos() as f64 / epoch_per_iteration as f64 / 1000.0;
             }
         }
 

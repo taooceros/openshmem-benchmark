@@ -151,7 +151,6 @@ fn benchmark(cli: &Config) {
                 cli.epoch_per_iteration,
                 &mut datas[data_id],
             )
-            .as_nanos() as f64
         } else {
             bandwidth_loop()
                 .scope(&scope)
