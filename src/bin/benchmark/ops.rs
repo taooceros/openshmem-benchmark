@@ -56,4 +56,6 @@ pub enum GetOperation {
 pub enum AtomicOperation {
     FetchAdd32,
     FetchAdd64,
+    FetchAdd32Latency,
+    FetchAdd64Latency,
 }

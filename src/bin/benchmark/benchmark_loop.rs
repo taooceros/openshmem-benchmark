@@ -46,7 +46,7 @@ pub fn lantency_loop<'a>(
 
         let now = Instant::now();
 
-        for epoch in 0..(epoch_per_iteration) {
+        for _ in 0..(epoch_per_iteration) {
             seed = (1 + seed * 7) % PRIME;
 
             let i = seed % num_working_set;
@@ -61,9 +61,35 @@ pub fn lantency_loop<'a>(
                         dest.get_from(source, (my_pe - num_concurrency) as i32);
                     }
                 }
-                Operation::Range(RangeOperation::Broadcast(BroadcastOperation::BroadcastLatency)) => {
+                Operation::Range(RangeOperation::Broadcast(
+                    BroadcastOperation::BroadcastLatency,
+                )) => {
                     if my_pe == 0 {
-                        dest.broadcast_to(source, num_concurrency as i32, 0, num_concurrency as i32);
+                        dest.broadcast_to(
+                            source,
+                            num_concurrency as i32,
+                            0,
+                            num_concurrency as i32,
+                        );
+                    }
+                }
+                Operation::Atomic {
+                    op,
+                    use_different_location,
+                } => {
+                    let target_pe = if use_different_location {
+                        (my_pe % num_concurrency) as i32
+                    } else {
+                        0
+                    };
+                    match op {
+                        AtomicOperation::FetchAdd32Latency => {
+                            dest.fetch_add_i32(1, target_pe);
+                        }
+                        AtomicOperation::FetchAdd64Latency => {
+                            dest.fetch_add_i64(1, target_pe);
+                        }
+                        _ => unreachable!("This operation should not be here."),
                     }
                 }
                 _ => unreachable!("This operation should not be here. {operation:?}"),
@@ -72,7 +98,7 @@ pub fn lantency_loop<'a>(
 
         match operation {
             Operation::Range(RangeOperation::Get(GetOperation::GetLatency)) => {
-                if my_pe < num_concurrency {
+                if my_pe >= num_concurrency {
                     record_latency(running, epoch_per_iteration, &mut final_latency, now, my_pe);
                 }
             }
@@ -81,8 +107,12 @@ pub fn lantency_loop<'a>(
                     record_latency(running, epoch_per_iteration, &mut final_latency, now, my_pe);
                 }
             }
+            Operation::Atomic { .. } => {
+                record_latency(running, epoch_per_iteration, &mut final_latency, now, my_pe);
+            }
+
             _ => unreachable!("This operation should not be here."),
-        }   
+        }
 
         // let only the main pe to stop others
         if !local_running.load(std::sync::atomic::Ordering::Relaxed) && my_pe == 0 {
@@ -97,7 +127,13 @@ pub fn lantency_loop<'a>(
     final_latency
 }
 
-fn record_latency<'a>(running: &mut OsmBox<'a, AtomicBool>, epoch_per_iteration: usize, final_latency: &mut f64, now: Instant, my_pe: usize) {
+fn record_latency<'a>(
+    running: &mut OsmBox<'a, AtomicBool>,
+    epoch_per_iteration: usize,
+    final_latency: &mut f64,
+    now: Instant,
+    my_pe: usize,
+) {
     let latency = now.elapsed();
 
     if *final_latency == 0.0 || running.load(std::sync::atomic::Ordering::Relaxed) {
@@ -229,6 +265,7 @@ pub fn bandwidth_loop<'a>(
                             AtomicOperation::FetchAdd64 => {
                                 dst.fetch_add_i64(seed as i64, target_pe as i32);
                             }
+                            _ => unreachable!("This operation should not be here. {operation:?}"),
                         }
                     }
                 };

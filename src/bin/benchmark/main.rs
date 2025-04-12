@@ -110,8 +110,8 @@ fn benchmark(cli: &Config) {
     // override data size for atomic operations
     match operation {
         Operation::Atomic { op: operation, .. } => match operation {
-            AtomicOperation::FetchAdd32 => data_size = 4,
-            AtomicOperation::FetchAdd64 => data_size = 8,
+            AtomicOperation::FetchAdd32 | AtomicOperation::FetchAdd32Latency => data_size = 4,
+            AtomicOperation::FetchAdd64 | AtomicOperation::FetchAdd64Latency => data_size = 8,
         },
         _ => {}
     }
@@ -155,6 +155,26 @@ fn benchmark(cli: &Config) {
                 &mut datas[data_id],
             )
         }
+        Operation::Atomic { op, .. } => match op {
+            AtomicOperation::FetchAdd32Latency | AtomicOperation::FetchAdd64Latency => {
+                lantency_loop(
+                    &scope,
+                    local_running,
+                    &mut running,
+                    operation,
+                    cli.epoch_per_iteration,
+                    &mut datas[data_id],
+                )
+            }
+            _ => bandwidth_loop()
+                .scope(&scope)
+                .local_running(local_running.clone())
+                .running(&mut running)
+                .operation(operation)
+                .epoch_per_iteration(cli.epoch_per_iteration)
+                .data(&mut datas[data_id])
+                .call(),
+        },
         _ => bandwidth_loop()
             .scope(&scope)
             .local_running(local_running.clone())
