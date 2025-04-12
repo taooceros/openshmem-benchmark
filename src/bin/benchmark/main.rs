@@ -171,7 +171,7 @@ fn output(scope: &OsmScope, num_concurrency: usize, final_result: f64, config: &
     let my_pe = scope.my_pe() as usize;
     let op = config.operation;
 
-    let mut throughputs = ShVec::with_capacity(num_concurrency, &scope);
+    let mut throughputs = ShVec::with_capacity(num_concurrency * 2, &scope);
 
     throughputs.resize_with(num_concurrency, || 0.0);
 
