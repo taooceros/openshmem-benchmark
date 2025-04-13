@@ -31,7 +31,7 @@ pub enum RangeOperation {
     PutGet {
         #[arg(global = true, long)]
         put_ratio: Option<f64>,
-        #[arg(global = true, long)]
+        #[arg(global = true, long, value_delimiter = ',')]
         op_sequence: Option<Vec<PutGetOp>>,
         #[arg(global = true, long)]
         blocking: bool,
