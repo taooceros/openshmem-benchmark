@@ -190,12 +190,14 @@ fn output(scope: &OsmScope, num_concurrency: usize, final_result: f64, config: &
         }
         Operation::Range(RangeOperation::Put(_))
         | Operation::Range(RangeOperation::Broadcast(_))
-        | Operation::Range(RangeOperation::AllToAll)
         | Operation::Range(RangeOperation::PutGet { .. }) => {
             // only sync half the pe
             if my_pe < num_concurrency {
                 my_throughput.put_to_nbi(&mut results[my_pe], 0);
             }
+        }
+        Operation::Range(RangeOperation::AllToAll) => {
+            my_throughput.put_to_nbi(&mut results[my_pe], 0);
         }
         Operation::Atomic { .. } => {
             my_throughput.put_to_nbi(&mut results[my_pe], 0);

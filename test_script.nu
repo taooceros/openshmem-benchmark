@@ -24,7 +24,8 @@ def execute [
         []
     }
 
-    (oshrun --wdir . --host $hosts --mca coll_ucc_enable 1 --mca coll_ucc_priority 100 -x UCC_TL_MLX5_NET_DEVICES=($device) -x UCX_NET_DEVICES=($device) ./target/release/benchmark
+    (oshrun --wdir . --host $hosts --mca coll_ucc_enable 0 --mca scoll_ucc_enable 1 --mca scoll_ucc_priority 100 -x UCC_TL_MLX5_NET_DEVICES=($device) -x UCX_NET_DEVICES=($device) -x UCX_RC_MLX5_DM_COUNT=0 -x UCX_DC_MLX5_DM_COUNT=0
+        ./target/release/benchmark
         ...$operation
         --epoch-size $epoch_size
         -s $data_size
@@ -40,12 +41,12 @@ def "main" [] {
 }
 
 def "main test" [
-    --epoch_size (-e): int = 1
+    --epoch_size (-e): int = 128
     --data_size (-s): int = 8
     --iterations (-i): int = 1000
     --operation (-o): record = { "group": "range", "operation": "all-to-all" }
     --duration: int = 5
-    --num_pe: int = 16
+    --num_pe: int = 1
     --num_working_set: int = 1
     --additional_args: list<string> = []
 ] {
@@ -237,6 +238,24 @@ def "main bench broadcast" [] {
 
     $records_broadcast | merge_group | save "throughputs-broadcast.json" -f
 }
+
+
+def "main bench alltoall" [] {
+    cargo build --release
+
+    let iterations = 100
+    let epoch_sizes = [4096]
+    let data_sizes = [8]
+    let num_pes = [ 1 2 4 6 8 10 ]
+    let duration = 20
+
+    let records_broadcast = nested_each [$num_pes $epoch_sizes $data_sizes] {|num_pe: int epoch_size: int data_size: int|
+        single_bench { "group": "range", "op": "all-to-all" } $epoch_size $data_size $iterations $num_pe $duration
+    }
+
+    $records_broadcast | merge_group | save "throughputs-all-to-all.json" -f
+}
+
 
 def "main bench put-get" [] {
     cargo build --release
