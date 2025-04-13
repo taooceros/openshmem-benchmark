@@ -2,6 +2,7 @@ use core::panic;
 use std::{
     mem::transmute,
     ops::Deref,
+    path::{Path, PathBuf},
     sync::{Arc, atomic::AtomicBool},
     time::{Duration, Instant},
 };
@@ -164,10 +165,28 @@ pub fn bandwidth_loop<'a>(
         }
     }
 
+    let mut op_seq = None;
+
     let mut put_get_op_seq = match operation {
-        Operation::Range(RangeOperation::PutGet { op_sequence, .. }) => {
-            op_sequence.as_ref().map(|op_seq| op_seq.iter().cycle())
-        }
+        Operation::Range(RangeOperation::PutGet {
+            op_sequence,
+            op_sequence_file,
+            ..
+        }) => op_sequence.as_ref().map_or_else(
+            || {
+                if let Some(op_sequence_file) = op_sequence_file {
+                    op_seq = Some(ops::read_op_sequence(Path::new(op_sequence_file)));
+                    let op_seq = op_seq.as_ref().unwrap();
+                    if op_seq.is_empty() {
+                        panic!("Empty operation sequence file");
+                    }
+                    Some(op_seq.iter().cycle())
+                } else {
+                    return None;
+                }
+            },
+            |op_seq| Some(op_seq.iter().cycle()),
+        ),
         _ => None,
     };
 

@@ -1,6 +1,7 @@
 use clap::{Args, Parser, Subcommand, ValueEnum};
 use openshmem_benchmark::{osm_slice::OsmSlice, osm_wrapper::OsmWrapper};
-use std::sync::atomic::AtomicU64;
+use serde::{Deserialize, Serialize};
+use std::{path::{Path, PathBuf}, sync::atomic::AtomicU64};
 use strum::{Display, EnumString};
 
 #[derive(Subcommand, Debug, Clone, Display, PartialEq)]
@@ -34,6 +35,8 @@ pub enum RangeOperation {
         #[arg(global = true, long, value_delimiter = ',', num_args = 0..)]
         op_sequence: Option<Vec<PutGetOp>>,
         #[arg(global = true, long)]
+        op_sequence_file: Option<String>,
+        #[arg(global = true, long)]
         blocking: bool,
     },
     #[command(flatten)]
@@ -43,7 +46,7 @@ pub enum RangeOperation {
     AllToAll,
 }
 
-#[derive(ValueEnum, Debug, Clone, Copy, Display, PartialEq)]
+#[derive(ValueEnum, Serialize, Deserialize, Debug, Clone, Copy, Display, PartialEq)]
 pub enum PutGetOp {
     Put,
     Get,
@@ -76,4 +79,14 @@ pub enum PutGetOperation {
 pub enum AtomicOperation {
     FetchAdd32,
     FetchAdd64,
+}
+
+pub(crate) fn read_op_sequence(unwrapped: &Path) -> Vec<PutGetOp> {
+    // use serde read json file
+    let file = std::fs::File::open(unwrapped).expect("Failed to open file");
+    let reader = std::io::BufReader::new(file);
+    let deserialized: Vec<PutGetOp> =
+        serde_json::from_reader(reader).expect("Failed to deserialize JSON");
+
+    return deserialized;
 }
