@@ -4,7 +4,10 @@ use std::{
 };
 
 use openshmem_sys::{
-    shmem_barrier, shmem_broadcast64, shmem_broadcastmem, shmem_getmem, shmem_getmem_nbi, shmem_int_atomic_fetch_add, shmem_int_broadcast, shmem_int_fadd, shmem_long_atomic_fetch_add, shmem_putmem, shmem_putmem_nbi, shmem_team_t, SHMEM_BARRIER_SYNC_SIZE, _SHMEM_SYNC_VALUE
+    _SHMEM_SYNC_VALUE, SHMEM_BARRIER_SYNC_SIZE, shmem_alltoall64, shmem_barrier, shmem_broadcast64,
+    shmem_broadcastmem, shmem_getmem, shmem_getmem_nbi, shmem_int_atomic_fetch_add,
+    shmem_int_broadcast, shmem_int_fadd, shmem_long_atomic_fetch_add, shmem_putmem,
+    shmem_putmem_nbi, shmem_team_t,
 };
 
 use crate::osm_wrapper::OsmWrapper;
@@ -112,7 +115,8 @@ impl<T> OsmSlice<T> {
         pe_size: i32,
     ) {
         unsafe {
-            let mut pSync = vec![_SHMEM_SYNC_VALUE as i64; SHMEM_BARRIER_SYNC_SIZE as usize * pe_size as usize];
+            let mut p_sync =
+                vec![_SHMEM_SYNC_VALUE as i64; SHMEM_BARRIER_SYNC_SIZE as usize * pe_size as usize];
 
             shmem_broadcast64(
                 other.as_mut_ptr().cast(),
@@ -122,7 +126,24 @@ impl<T> OsmSlice<T> {
                 pe_start,
                 log_pe_stride,
                 pe_size,
-                pSync.as_mut_ptr(),
+                p_sync.as_mut_ptr(),
+            );
+        }
+    }
+
+    pub fn all_to_all(&self, other: &mut Self, pe_start: i32, log_pe_stride: i32, pe_size: i32) {
+        unsafe {
+            let mut p_sync =
+                vec![_SHMEM_SYNC_VALUE as i64; SHMEM_BARRIER_SYNC_SIZE as usize * pe_size as usize];
+
+            shmem_alltoall64(
+                other.as_mut_ptr().cast(),
+                self.as_ptr().cast(),
+                self.len() * std::mem::size_of::<T>() / std::mem::size_of::<u64>(),
+                pe_start,
+                log_pe_stride,
+                pe_size,
+                p_sync.as_mut_ptr(),
             );
         }
     }

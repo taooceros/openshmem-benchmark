@@ -1,6 +1,6 @@
 #!/usr/bin/env nu
 
-let second_host = $env.SECOND_HOST
+let second_host = $env.PEER
 let device = $env.DEVICE? | default "mlx5_1:1"
 
 def execute [
@@ -24,7 +24,7 @@ def execute [
         []
     }
 
-    (oshrun --wdir . --host $hosts --mca coll_ucc_enable 1 --mca coll_ucc_priority 100 -mca btl ^vader,tcp,openib,uct -x UCC_TL_MLX5_NET_DEVICES=($device) -x UCX_NET_DEVICES=($device) -x RUST_BACKTRACE=1 ./target/release/benchmark
+    (oshrun --wdir . --host $hosts --mca coll_ucc_enable 1 --mca coll_ucc_priority 100 -x UCC_TL_MLX5_NET_DEVICES=($device) -x UCX_NET_DEVICES=($device) ./target/release/benchmark
         ...$operation
         --epoch-size $epoch_size
         -s $data_size
@@ -43,9 +43,9 @@ def "main test" [
     --epoch_size (-e): int = 1
     --data_size (-s): int = 8
     --iterations (-i): int = 1000
-    --operation (-o): record = { "group": "range", "operation": "broadcast" }
+    --operation (-o): record = { "group": "range", "operation": "all-to-all" }
     --duration: int = 5
-    --num_pe: int = 1
+    --num_pe: int = 16
     --num_working_set: int = 1
     --additional_args: list<string> = []
 ] {
@@ -205,7 +205,6 @@ def "main bench latency" [] {
     let operations = [
         ["group", "op"];
         ["range" "get"]
-        ["range" "broadcast"]
         ["atomic" "atomic-i32"]
         ["range" "atomic-i64"]
     ]
@@ -221,6 +220,22 @@ def "main bench latency" [] {
     }
 
     $records_latency | merge_group | save "throughputs-latency.json" -f
+}
+
+def "main bench broadcast" [] {
+    cargo build --release
+
+    let iterations = 1000
+    let epoch_sizes = [4096]
+    let data_sizes = [8]
+    let num_pes = [ 1 2 4 8 16 32 ]
+    let duration = 20
+
+    let records_broadcast = nested_each [$num_pes $epoch_sizes $data_sizes] {|num_pe: int epoch_size: int data_size: int|
+        single_bench { "group": "range", "op": "broadcast" } $epoch_size $data_size $iterations $num_pe $duration
+    }
+
+    $records_broadcast | merge_group | save "throughputs-broadcast.json" -f
 }
 
 def "main bench put-get" [] {

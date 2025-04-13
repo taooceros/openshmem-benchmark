@@ -7,7 +7,7 @@ use std::{
 };
 
 use bon::builder;
-use openshmem_benchmark::{osm_box::OsmBox, osm_scope, osm_team::OsmTeam};
+use openshmem_benchmark::{osm_box::OsmBox, osm_scope, osm_team::OsmTeam, osm_vec::ShVec};
 
 use crate::{
     RangeBenchmarkData,
@@ -170,6 +170,14 @@ pub fn bandwidth_loop<'a>(
         _ => None,
     };
 
+    let mut all_to_all_dst = if let Operation::Range(RangeOperation::AllToAll) = operation {
+        let mut all_to_all_dst = ShVec::with_capacity(data_size * num_pe, scope);
+        all_to_all_dst.resize_with(data_size * num_pe, || 0);
+        Some(all_to_all_dst)
+    } else {
+        None
+    };
+
     let false_signal = OsmBox::new(AtomicBool::new(false), &scope);
 
     loop {
@@ -269,6 +277,17 @@ pub fn bandwidth_loop<'a>(
                             src.broadcast(dst, 0, 0, 0, num_pe as i32);
                         }
                     },
+
+                    Operation::Range(RangeOperation::AllToAll) => {
+                        src.all_to_all(
+                            all_to_all_dst.as_mut().expect(
+                                "All to All dest should be initilized when testing all to all.",
+                            ),
+                            0,
+                            0,
+                            num_pe as i32,
+                        );
+                    }
                     Operation::Atomic {
                         op: operation,
                         use_different_location,

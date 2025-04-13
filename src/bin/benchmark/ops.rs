@@ -39,6 +39,8 @@ pub enum RangeOperation {
     #[command(flatten)]
     #[strum(to_string = "{0}")]
     Broadcast(BroadcastOperation),
+
+    AllToAll,
 }
 
 #[derive(ValueEnum, Debug, Clone, Copy, Display, PartialEq)]
