@@ -10,7 +10,7 @@ use openshmem_sys::{
     shmem_putmem_nbi, shmem_team_t,
 };
 
-use crate::osm_wrapper::OsmWrapper;
+use crate::{osm_vec::ShVec, osm_wrapper::OsmWrapper};
 
 #[repr(transparent)]
 pub struct OsmSlice<T> {
@@ -113,6 +113,7 @@ impl<T> OsmSlice<T> {
         pe_start: i32,
         log_pe_stride: i32,
         pe_size: i32,
+        // p_sync: &mut ShVec<i64>,
     ) {
         unsafe {
             let mut p_sync =
@@ -131,11 +132,15 @@ impl<T> OsmSlice<T> {
         }
     }
 
-    pub fn all_to_all(&self, other: &mut Self, pe_start: i32, log_pe_stride: i32, pe_size: i32) {
+    pub fn all_to_all(
+        &self,
+        other: &mut Self,
+        pe_start: i32,
+        log_pe_stride: i32,
+        pe_size: i32,
+        p_sync: &mut ShVec<i64>,
+    ) {
         unsafe {
-            let mut p_sync =
-                vec![_SHMEM_SYNC_VALUE as i64; SHMEM_BARRIER_SYNC_SIZE as usize * pe_size as usize];
-
             shmem_alltoall64(
                 other.as_mut_ptr().cast(),
                 self.as_ptr().cast(),

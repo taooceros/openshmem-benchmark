@@ -8,6 +8,7 @@ use std::{
 
 use bon::builder;
 use openshmem_benchmark::{osm_box::OsmBox, osm_scope, osm_team::OsmTeam, osm_vec::ShVec};
+use openshmem_sys::_SHMEM_SYNC_VALUE;
 
 use crate::{
     RangeBenchmarkData,
@@ -178,6 +179,9 @@ pub fn bandwidth_loop<'a>(
         None
     };
 
+    let mut psync = ShVec::with_capacity(num_pe, scope);
+    psync.resize_with(num_pe, || _SHMEM_SYNC_VALUE as i64);
+
     let false_signal = OsmBox::new(AtomicBool::new(false), &scope);
 
     loop {
@@ -286,6 +290,7 @@ pub fn bandwidth_loop<'a>(
                             0,
                             0,
                             num_pe as i32,
+                            &mut psync,
                         );
                     }
                     Operation::Atomic {
