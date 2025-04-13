@@ -1,3 +1,4 @@
+use core::panic;
 use std::{
     mem::transmute,
     ops::Deref,
@@ -11,8 +12,8 @@ use openshmem_benchmark::{osm_box::OsmBox, osm_scope};
 use crate::{
     RangeBenchmarkData,
     ops::{
-        self, AtomicOperation, BroadcastOperation, GetOperation, Operation, PutOperation,
-        RangeOperation,
+        self, AtomicOperation, BroadcastOperation, GetOperation, Operation, PutGetOp,
+        PutGetOperation, PutOperation, RangeOperation,
     },
 };
 
@@ -21,7 +22,7 @@ pub fn lantency_loop<'a>(
     scope: &osm_scope::OsmScope,
     local_running: Arc<AtomicBool>,
     running: &mut OsmBox<'a, AtomicBool>,
-    operation: Operation,
+    operation: &Operation,
     epoch_per_iteration: usize,
     data: &mut RangeBenchmarkData<'a>,
 ) -> f64 {
@@ -76,7 +77,7 @@ pub fn lantency_loop<'a>(
                     op,
                     use_different_location,
                 } => {
-                    let target_pe = if use_different_location {
+                    let target_pe = if *use_different_location {
                         (my_pe % num_concurrency) as i32
                     } else {
                         0
@@ -88,7 +89,6 @@ pub fn lantency_loop<'a>(
                         AtomicOperation::FetchAdd64 => {
                             dest.fetch_add_i64(1, target_pe);
                         }
-                        _ => unreachable!("This operation should not be here."),
                     }
                 }
                 _ => unreachable!("This operation should not be here. {operation:?}"),
@@ -149,7 +149,7 @@ pub fn bandwidth_loop<'a>(
     scope: &osm_scope::OsmScope,
     local_running: Arc<AtomicBool>,
     running: &mut OsmBox<'a, AtomicBool>,
-    operation: Operation,
+    operation: &Operation,
     epoch_per_iteration: usize,
     data: &mut RangeBenchmarkData<'a>,
 ) -> f64 {
@@ -169,6 +169,13 @@ pub fn bandwidth_loop<'a>(
             panic!("Atomic operation requires data size to be 4 or 8 bytes (int or long)");
         }
     }
+
+    let mut put_get_op_seq = match operation {
+        Operation::Range(RangeOperation::PutGet { op_sequence, .. }) => {
+            op_sequence.as_ref().map(|op_seq| op_seq.iter().cycle())
+        }
+        _ => None,
+    };
 
     let false_signal = OsmBox::new(AtomicBool::new(false), &scope);
 
@@ -215,6 +222,45 @@ pub fn bandwidth_loop<'a>(
                                 GetOperation::GetNonBlocking => {
                                     src.get_from_nbi(dst, target_pe as i32);
                                 }
+                            }
+                        }
+                    }
+                    Operation::Range(RangeOperation::PutGet { blocking, put_ratio, .. }) => {
+                        if my_pe < num_concurrency {
+                            if let Some(put_ratio) = put_ratio {
+                                let target_pe = my_pe + num_concurrency;
+                                if seed % 100 < (put_ratio * 100.0) as usize {
+                                    if *blocking {
+                                        src.put_to(dst, target_pe as i32);
+                                    } else {
+                                        src.put_to_nbi(dst, target_pe as i32);
+                                    }
+                                } else {
+                                    if *blocking {
+                                        src.get_from(dst, target_pe as i32);
+                                    } else {
+                                        src.get_from_nbi(dst, target_pe as i32);
+                                    }
+                                }
+                            } else if let Some(op_seq) = put_get_op_seq.as_mut() {
+                                match op_seq.next().as_ref().unwrap() {
+                                    PutGetOp::Put => {
+                                        if *blocking {
+                                            src.put_to(dst, (my_pe + num_concurrency) as i32);
+                                        } else {
+                                            src.put_to_nbi(dst, (my_pe + num_concurrency) as i32);
+                                        }
+                                    }
+                                    PutGetOp::Get => {
+                                        if *blocking {
+                                            src.get_from(dst, (my_pe + num_concurrency) as i32);
+                                        } else {
+                                            src.get_from_nbi(dst, (my_pe + num_concurrency) as i32);
+                                        }
+                                    }
+                                }
+                            } else {
+                                panic   !("PutGet operation requires either put_ratio or op_sequence to be set");
                             }
                         }
                     }

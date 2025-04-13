@@ -107,7 +107,7 @@ fn benchmark(cli: &Config) {
 
     let mut running = OsmBox::new(AtomicBool::new(true), &scope);
 
-    let operation = cli.operation;
+    let operation = &cli.operation;
     let epoch_size = cli.epoch_size;
     let mut data_size = cli.size;
 
@@ -173,7 +173,7 @@ fn benchmark(cli: &Config) {
 fn output(scope: &OsmScope, num_concurrency: usize, final_result: f64, config: &Config) {
     // eprintln!("Final throughput: {:.2} messages/second", final_throughput);
     let my_pe = scope.my_pe() as usize;
-    let op = config.operation;
+    let op = &config.operation;
 
     let mut results = ShVec::with_capacity(num_concurrency * 2, &scope);
 
@@ -189,7 +189,8 @@ fn output(scope: &OsmScope, num_concurrency: usize, final_result: f64, config: &
             }
         }
         Operation::Range(RangeOperation::Put(_))
-        | Operation::Range(RangeOperation::Broadcast(_)) => {
+        | Operation::Range(RangeOperation::Broadcast(_))
+        | Operation::Range(RangeOperation::PutGet { .. }) => {
             // only sync half the pe
             if my_pe < num_concurrency {
                 my_throughput.put_to_nbi(&mut results[my_pe], 0);
