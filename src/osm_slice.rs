@@ -4,9 +4,7 @@ use std::{
 };
 
 use openshmem_sys::{
-    SHMEM_BARRIER_SYNC_SIZE, shmem_barrier, shmem_broadcastmem, shmem_getmem, shmem_getmem_nbi,
-    shmem_int_atomic_fetch_add, shmem_int_broadcast, shmem_int_fadd, shmem_long_atomic_fetch_add,
-    shmem_putmem, shmem_putmem_nbi, shmem_team_t,
+    shmem_barrier, shmem_broadcast64, shmem_broadcastmem, shmem_getmem, shmem_getmem_nbi, shmem_int_atomic_fetch_add, shmem_int_broadcast, shmem_int_fadd, shmem_long_atomic_fetch_add, shmem_putmem, shmem_putmem_nbi, shmem_team_t, SHMEM_BARRIER_SYNC_SIZE, _SHMEM_SYNC_VALUE
 };
 
 use crate::osm_wrapper::OsmWrapper;
@@ -105,51 +103,27 @@ impl<T> OsmSlice<T> {
         }
     }
 
-    pub fn broadcast_to_nbi(
+    pub fn broadcast(
         &self,
         other: &mut Self,
-        pe_start: i32,
-        log_pe_stride: i32,
-        pe_size: i32,
-    )
-    {
-        unsafe {
-            let target_pes = (0..pe_size).map(|i| pe_start + i as i32 * (1 << log_pe_stride));
-
-            for target_pe in target_pes {
-                shmem_putmem_nbi(
-                    other.as_mut_ptr().cast(),
-                    self.as_ptr().cast(),
-                    std::mem::size_of::<T>() * self.len(),
-                    target_pe
-                        .try_into()
-                        .expect("Failed to convert target_pe to i32"),
-                );
-            }
-        }
-    }
-
-    pub fn broadcast_to(
-        &self,
-        other: &mut Self,
+        root_pe: i32,
         pe_start: i32,
         log_pe_stride: i32,
         pe_size: i32,
     ) {
         unsafe {
-            let target_pes = (0..pe_size).map(|i| pe_start + i as i32 * (1 << log_pe_stride));
-            for target_pe in target_pes {
-                shmem_putmem_nbi(
-                    other.as_mut_ptr().cast(),
-                    self.as_ptr().cast(),
-                    std::mem::size_of::<T>() * self.len(),
-                    target_pe,
-                );
-            }
+            let mut pSync = vec![_SHMEM_SYNC_VALUE as i64; SHMEM_BARRIER_SYNC_SIZE as usize * pe_size as usize];
 
-            let mut p_sync = vec![0u32; (SHMEM_BARRIER_SYNC_SIZE * pe_size as u32) as usize];
-
-            shmem_barrier(pe_start, pe_size, log_pe_stride, p_sync.as_mut_ptr().cast());
+            shmem_broadcast64(
+                other.as_mut_ptr().cast(),
+                self.as_ptr().cast(),
+                self.len() * std::mem::size_of::<T>() / std::mem::size_of::<u64>(),
+                root_pe,
+                pe_start,
+                log_pe_stride,
+                pe_size,
+                pSync.as_mut_ptr(),
+            );
         }
     }
 

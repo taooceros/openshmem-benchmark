@@ -24,7 +24,7 @@ def execute [
         []
     }
 
-    (oshrun --wdir . --host $hosts -mca pml ucx  -mca btl ^vader,tcp,openib,uct -x UCX_NET_DEVICES=($device) -x RUST_BACKTRACE=1 ./target/release/benchmark
+    (oshrun --wdir . --host $hosts --mca coll_ucc_enable 1 --mca coll_ucc_priority 100 -mca btl ^vader,tcp,openib,uct -x UCC_TL_MLX5_NET_DEVICES=($device) -x UCX_NET_DEVICES=($device) -x RUST_BACKTRACE=1 ./target/release/benchmark
         ...$operation
         --epoch-size $epoch_size
         -s $data_size
@@ -40,10 +40,10 @@ def "main" [] {
 }
 
 def "main test" [
-    --epoch_size (-e): int = 1024
+    --epoch_size (-e): int = 1
     --data_size (-s): int = 8
     --iterations (-i): int = 1000
-    --operation (-o): record = { "group": "range", "operation": "put-get" }
+    --operation (-o): record = { "group": "range", "operation": "broadcast" }
     --duration: int = 5
     --num_pe: int = 1
     --num_working_set: int = 1

@@ -7,7 +7,7 @@ use std::{
 };
 
 use bon::builder;
-use openshmem_benchmark::{osm_box::OsmBox, osm_scope};
+use openshmem_benchmark::{osm_box::OsmBox, osm_scope, osm_team::OsmTeam};
 
 use crate::{
     RangeBenchmarkData,
@@ -64,14 +64,7 @@ pub fn lantency_loop<'a>(
                     }
                 }
                 Operation::Range(RangeOperation::Broadcast(BroadcastOperation::Broadcast)) => {
-                    if my_pe == 0 {
-                        dest.broadcast_to(
-                            source,
-                            num_concurrency as i32,
-                            0,
-                            num_concurrency as i32,
-                        );
-                    }
+                    source.broadcast(dest, 0, 0, 0, num_pe as i32);
                 }
                 Operation::Atomic {
                     op,
@@ -225,7 +218,11 @@ pub fn bandwidth_loop<'a>(
                             }
                         }
                     }
-                    Operation::Range(RangeOperation::PutGet { blocking, put_ratio, .. }) => {
+                    Operation::Range(RangeOperation::PutGet {
+                        blocking,
+                        put_ratio,
+                        ..
+                    }) => {
                         if my_pe < num_concurrency {
                             if let Some(put_ratio) = put_ratio {
                                 let target_pe = my_pe + num_concurrency;
@@ -260,31 +257,16 @@ pub fn bandwidth_loop<'a>(
                                     }
                                 }
                             } else {
-                                panic   !("PutGet operation requires either put_ratio or op_sequence to be set");
+                                panic!(
+                                    "PutGet operation requires either put_ratio or op_sequence to be set"
+                                );
                             }
                         }
                     }
 
                     Operation::Range(RangeOperation::Broadcast(operation)) => match operation {
                         BroadcastOperation::Broadcast => {
-                            if my_pe < num_concurrency {
-                                src.broadcast_to(
-                                    dst,
-                                    num_concurrency as i32,
-                                    0,
-                                    num_concurrency as i32,
-                                );
-                            }
-                        }
-                        BroadcastOperation::BroadcastNonBlocking => {
-                            if my_pe < num_concurrency {
-                                src.broadcast_to_nbi(
-                                    dst,
-                                    num_concurrency as i32,
-                                    0,
-                                    num_concurrency as i32,
-                                );
-                            }
+                            src.broadcast(dst, 0, 0, 0, num_pe as i32);
                         }
                     },
                     Operation::Atomic {

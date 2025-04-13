@@ -50,7 +50,6 @@ pub enum PutGetOp {
 #[derive(Subcommand, Debug, Clone, Copy, Display, PartialEq)]
 pub enum BroadcastOperation {
     Broadcast,
-    BroadcastNonBlocking,
 }
 
 #[derive(Subcommand, Debug, Clone, Copy, Display, PartialEq, Eq)]
