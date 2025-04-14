@@ -173,7 +173,7 @@ impl<T> OsmSlice<T> {
         }
     }
 
-    pub fn compare_and_exchange_i32(&mut self, expected: i32, desired: i32, target_pe: i32) -> i32 {
+    pub fn compare_and_swap_i32(&mut self, expected: i32, desired: i32, target_pe: i32) -> i32 {
         unsafe {
             if self.len() != size_of::<i32>() {
                 panic!("compare_and_exchange_i32 only works for i32");
@@ -183,7 +183,7 @@ impl<T> OsmSlice<T> {
         }
     }
 
-    pub fn compare_and_exchange_i64(&mut self, expected: i64, desired: i64, target_pe: i32) -> i64 {
+    pub fn compare_and_swap_i64(&mut self, expected: i64, desired: i64, target_pe: i32) -> i64 {
         unsafe {
             if self.len() != size_of::<i64>() {
                 panic!("compare_and_exchange_i64 only works for i64");
