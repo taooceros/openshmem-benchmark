@@ -79,6 +79,8 @@ pub enum PutGetOperation {
 pub enum AtomicOperation {
     FetchAdd32,
     FetchAdd64,
+    CompareAndSwap32,
+    CompareAndSwap64,
 }
 
 pub(crate) fn read_op_sequence(unwrapped: &Path) -> Vec<PutGetOp> {

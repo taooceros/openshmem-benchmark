@@ -84,6 +84,12 @@ pub fn lantency_loop<'a>(
                         AtomicOperation::FetchAdd64 => {
                             dest.fetch_add_i64(1, target_pe);
                         }
+                        AtomicOperation::CompareAndSwap32 => {
+                            dest.compare_and_exchange_i32(0, 0, target_pe);
+                        }
+                        AtomicOperation::CompareAndSwap64 => {
+                            dest.compare_and_exchange_i64(0, 0, target_pe);
+                        }
                     }
                 }
                 _ => unreachable!("This operation should not be here. {operation:?}"),
@@ -328,6 +334,12 @@ pub fn bandwidth_loop<'a>(
                             }
                             AtomicOperation::FetchAdd64 => {
                                 dst.fetch_add_i64(seed as i64, target_pe as i32);
+                            }
+                            AtomicOperation::CompareAndSwap32 => {
+                                dst.compare_and_exchange_i32(0, 0, target_pe as i32);
+                            }
+                            AtomicOperation::CompareAndSwap64 => {
+                                dst.compare_and_exchange_i64(0, 0, target_pe as i32);
                             }
                         }
                     }

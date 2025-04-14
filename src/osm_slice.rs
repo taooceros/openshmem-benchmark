@@ -6,8 +6,8 @@ use std::{
 use openshmem_sys::{
     _SHMEM_SYNC_VALUE, SHMEM_BARRIER_SYNC_SIZE, shmem_alltoall64, shmem_barrier, shmem_broadcast64,
     shmem_broadcastmem, shmem_getmem, shmem_getmem_nbi, shmem_int_atomic_fetch_add,
-    shmem_int_broadcast, shmem_int_fadd, shmem_long_atomic_fetch_add, shmem_putmem,
-    shmem_putmem_nbi, shmem_team_t,
+    shmem_int_broadcast, shmem_int_cswap, shmem_int_fadd, shmem_long_atomic_fetch_add,
+    shmem_long_cswap, shmem_putmem, shmem_putmem_nbi, shmem_team_t,
 };
 
 use crate::{osm_vec::ShVec, osm_wrapper::OsmWrapper};
@@ -170,6 +170,26 @@ impl<T> OsmSlice<T> {
             }
 
             shmem_long_atomic_fetch_add(self.as_mut_ptr().cast(), value, target_pe)
+        }
+    }
+
+    pub fn compare_and_exchange_i32(&mut self, expected: i32, desired: i32, target_pe: i32) -> i32 {
+        unsafe {
+            if self.len() != size_of::<i32>() {
+                panic!("compare_and_exchange_i32 only works for i32");
+            }
+
+            shmem_int_cswap(self.as_mut_ptr().cast(), expected, desired, target_pe)
+        }
+    }
+
+    pub fn compare_and_exchange_i64(&mut self, expected: i64, desired: i64, target_pe: i32) -> i64 {
+        unsafe {
+            if self.len() != size_of::<i64>() {
+                panic!("compare_and_exchange_i64 only works for i64");
+            }
+
+            shmem_long_cswap(self.as_mut_ptr().cast(), expected, desired, target_pe)
         }
     }
 }

@@ -114,8 +114,8 @@ fn benchmark(cli: &Config) {
     // override data size for atomic operations
     match operation {
         Operation::Atomic { op: operation, .. } => match operation {
-            AtomicOperation::FetchAdd32 => data_size = 4,
-            AtomicOperation::FetchAdd64 => data_size = 8,
+            AtomicOperation::FetchAdd32 | AtomicOperation::CompareAndSwap32 => data_size = 4,
+            AtomicOperation::FetchAdd64 | AtomicOperation::CompareAndSwap64 => data_size = 8,
         },
         _ => {}
     }
