@@ -2,6 +2,7 @@
 
 let second_host = $env.PEER
 let device = $env.DEVICE? | default "mlx5_1:1"
+cargo build --release
 
 def execute [
     operation: record
@@ -134,70 +135,66 @@ def nested_each [items, f: closure, args: list = [], additional_args: record = {
 }
 
 def "main bench" [] {
-    cargo build --release
+    main bench rma
+    main bench atomic
+    main bench latency
+    main bench broadcast
+    main bench alltoall
+    main bench put-get
+}
+
+def "main bench rma" [] {
     
     let iterations = 500
     
-    # let operations = [
-    #     ["group", "op"];
-    #     # ["range", "put"]
-    #     # ["range", "get"]
-    #     ["range", "put-non-blocking"]
-    #     ["range", "get-non-blocking"]
-    #     # ["range", "broadcast"]
-    # ]
-    let num_pes = [ 1 2 4 6 8 10 ]
+    let operations = [
+        ["group", "op"];
+        ["range", "put"]
+        ["range", "get"]
+        ["range", "put-non-blocking"]
+        ["range", "get-non-blocking"]
+        # ["range", "broadcast"]
+    ]
+    let num_pes = 1..10
     let epoch_sizes = [ 4096 ] # [ 1024 2048 4096 8192 ]
     let data_sizes = [8] # [1 8 64 128 1024 4096]
     let duration = 10
 
-    # let records = nested_each [$operations $num_pes $epoch_sizes $data_sizes] {|$operation: record num_pe: int epoch_size: int data_size: int|
-    #     single_bench $operation $epoch_size $data_size $iterations $num_pe $duration
-    # }
-
-    # print $records
-
-    let operations = [
-        ["group", "op"];
-        # ["range", "put"]
-        # ["range", "get"]
-        # ["range", "put-non-blocking"]
-        # ["range", "get-non-blocking"]
-        ["range", "broadcast"]
-        ["range", "broadcast-non-blocking"]
-    ]
-
-    let num_pes = [ 1 2 4 8 16 32 ]
-
-    let records = (nested_each [$operations $num_pes $epoch_sizes $data_sizes] {|$operation: record num_pe: int epoch_size: int data_size: int|
+    let records = nested_each [$operations $num_pes $epoch_sizes $data_sizes] {|$operation: record num_pe: int epoch_size: int data_size: int|
         single_bench $operation $epoch_size $data_size $iterations $num_pe $duration
-    })
+    }
 
     print $records
 
     $records | merge_group | save "throughputs.json" -f
 
-    # let num_pes = [ 1 2 4 6 8 10 ]
-    # let epoch_sizes = [4096]
-    # let data_sizes = [1] # Atomic operations are not supported for larger data sizes
+    
+}
 
-    # let operations = [
-    #     ["group", "op"];
-    #     ["atomic" "fetch-add32"]
-    #     ["atomic" "fetch-add64"]
-    # ]
+def "main bench atomic" [] {
+    let iterations = 500
+    let num_pes = [ 1 2 4 6 8 10 ]
+    let epoch_sizes = [4096]
+    let data_sizes = [1] # Atomic operations are not supported for larger data sizes
+    let duration = 15
 
-    # let records_same_location = nested_each [$operations $num_pes $epoch_sizes $data_sizes] {|$operation: record num_pe: int epoch_size: int data_size: int|
-    #     single_bench $operation $epoch_size $data_size $iterations $num_pe $duration []
-    # }
+    let operations = [
+        ["group", "op"];
+        ["atomic" "fetch-add32"]
+        ["atomic" "fetch-add64"]
+    ]
 
-    # let records_different_location = nested_each [$operations $num_pes $epoch_sizes $data_sizes] {|$operation: record num_pe: int epoch_size: int data_size: int|
-    #     single_bench $operation $epoch_size $data_size $iterations $num_pe $duration ["--use-different-location"]
-    # }
+    let records_same_location = nested_each [$operations $num_pes $epoch_sizes $data_sizes] {|$operation: record num_pe: int epoch_size: int data_size: int|
+        single_bench $operation $epoch_size $data_size $iterations $num_pe $duration --additional_args []
+    }
+
+    let records_different_location = nested_each [$operations $num_pes $epoch_sizes $data_sizes] {|$operation: record num_pe: int epoch_size: int data_size: int|
+        single_bench $operation $epoch_size $data_size $iterations $num_pe $duration --additional_args ["--use-different-location"]
+    }
 
 
-    # $records_same_location | merge_group | save "throughputs-atomic-contention.json" -f
-    # $records_different_location | merge_group | save "throughputs-atomic-different-location.json" -f
+    $records_same_location | merge_group | save "throughputs-atomic-contention.json" -f
+    $records_different_location | merge_group | save "throughputs-atomic-different-location.json" -f
 }
 
 def "main bench latency" [] {
@@ -291,3 +288,36 @@ def "main bench put-get" [] {
     $records_one_put_one_get | merge_group | save "throughputs-one-get-one-put.json" -f   
 }
 
+def "main bench trace" [] {
+    cargo build --release
+
+    ls spmm*.json | each {|trace_file|
+        let iterations = 1000
+        let epoch_sizes = [4096]
+        let data_sizes = [8]
+        let num_pes = [ 1 ]
+        let duration = 10
+
+        let records_uniform_put_get = nested_each [$num_pes $epoch_sizes $data_sizes] {|num_pe: int epoch_size: int data_size: int|
+            single_bench { "group": "range", "op": "put-get" } $epoch_size $data_size $iterations $num_pe $duration --additional_args ["--op-sequence-file", $trace_file.name]
+        }
+
+        $records_uniform_put_get | merge_group | save $"throughputs-trace-($trace_file.name)" -f
+    }
+}
+
+def "main transform-trace" [] {
+    ls spmm*.json | each {|trace_file|
+        let trace_file = $trace_file.name
+        let trace = (open $trace_file)
+        let trace = $trace | each {|row|
+            if $row == 0 {
+                "Get"
+            } else {
+                "Put"
+            }
+        }
+
+        $trace | save $trace_file -f
+    }
+}
