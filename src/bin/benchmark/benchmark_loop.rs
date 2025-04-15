@@ -74,6 +74,7 @@ pub fn lantency_loop<'a>(
                 Operation::Range(RangeOperation::Put(PutOperation::Put)) => {
                     if my_pe < num_concurrency {
                         source.put_to(dest, (my_pe + num_concurrency) as i32);
+                        scope.quiet();
                     }
                 }
                 Operation::Range(RangeOperation::Broadcast(BroadcastOperation::Broadcast)) => {
