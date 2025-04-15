@@ -1,5 +1,6 @@
 use core::panic;
 use std::{
+    arch::x86_64::__rdtscp,
     mem::transmute,
     ops::Deref,
     path::{Path, PathBuf},
@@ -41,8 +42,11 @@ pub fn lantency_loop<'a>(
     let num_working_set = data.num_working_set();
     let false_signal = OsmBox::new(AtomicBool::new(false), &scope);
 
+    let mut aux = 0;
+
     loop {
         scope.barrier_all();
+        let mut cycles = Vec::with_capacity(epoch_per_iteration);
 
         if !running.load(std::sync::atomic::Ordering::SeqCst) {
             break;
@@ -58,6 +62,8 @@ pub fn lantency_loop<'a>(
             let source = &mut data.src_working_set[i][0];
 
             let dest = &mut data.dst_working_set[i][0];
+
+            let begin_cycle = unsafe { __rdtscp(&mut aux) };
 
             match operation {
                 Operation::Range(RangeOperation::Get(GetOperation::Get)) => {
@@ -94,21 +100,46 @@ pub fn lantency_loop<'a>(
                 }
                 _ => unreachable!("This operation should not be here. {operation:?}"),
             }
+
+            let end_cycle = unsafe { __rdtscp(&mut aux) };
+
+            cycles.push(end_cycle - begin_cycle);
         }
 
         match operation {
             Operation::Range(RangeOperation::Get(GetOperation::Get)) => {
                 if my_pe >= num_concurrency {
-                    record_latency(running, epoch_per_iteration, &mut final_latency, now, my_pe);
+                    record_latency(
+                        running,
+                        epoch_per_iteration,
+                        &mut final_latency,
+                        &cycles,
+                        now,
+                        my_pe,
+                    );
                 }
             }
             Operation::Range(RangeOperation::Broadcast(BroadcastOperation::Broadcast)) => {
                 if my_pe == 0 {
-                    record_latency(running, epoch_per_iteration, &mut final_latency, now, my_pe);
+                    record_latency(
+                        running,
+                        epoch_per_iteration,
+                        &mut final_latency,
+                        &cycles,
+                        now,
+                        my_pe,
+                    );
                 }
             }
             Operation::Atomic { .. } => {
-                record_latency(running, epoch_per_iteration, &mut final_latency, now, my_pe);
+                record_latency(
+                    running,
+                    epoch_per_iteration,
+                    &mut final_latency,
+                    &cycles,
+                    now,
+                    my_pe,
+                );
             }
 
             _ => unreachable!("This operation should not be here."),
@@ -131,6 +162,7 @@ fn record_latency<'a>(
     running: &mut OsmBox<'a, AtomicBool>,
     epoch_per_iteration: usize,
     final_latency: &mut f64,
+    latency_cycles: &Vec<u64>,
     now: Instant,
     my_pe: usize,
 ) {
@@ -141,6 +173,24 @@ fn record_latency<'a>(
             "Latency on Machine {my_pe}: {:.2} microseconds",
             latency.as_nanos() as f64 / epoch_per_iteration as f64 / 1000.0
         );
+
+        // efficiently print min/median/mean/max cycle
+        let mut cycles = latency_cycles.clone();
+        cycles.sort();
+        let min_latency = cycles[0];
+        let median_latency = if cycles.len() % 2 == 0 {
+            (cycles[cycles.len() / 2] + cycles[cycles.len() / 2 - 1]) as f64 / 2.0
+        } else {
+            cycles[cycles.len() / 2] as f64
+        };
+        let mean_latency = cycles.iter().sum::<u64>() as f64 / cycles.len() as f64;
+        let max_latency = cycles[cycles.len() - 1];
+
+        println!(
+            "Latency on Machine {my_pe}: min: {:.2} median: {:.2} mean: {:.2} max: {:.2}",
+            min_latency, median_latency, mean_latency, max_latency
+        );
+
         *final_latency = latency.as_nanos() as f64 / epoch_per_iteration as f64 / 1000.0;
     }
 }
@@ -336,10 +386,10 @@ pub fn bandwidth_loop<'a>(
                                 dst.fetch_add_i64(seed as i64, target_pe as i32);
                             }
                             AtomicOperation::CompareAndSwap32 => {
-                                dst.compare_and_swap_i32(0, 0, target_pe as i32);
+                                dst.compare_and_swap_i32(2, 0, target_pe as i32);
                             }
                             AtomicOperation::CompareAndSwap64 => {
-                                dst.compare_and_swap_i64(0, 0, target_pe as i32);
+                                dst.compare_and_swap_i64(2, 0, target_pe as i32);
                             }
                         }
                     }
