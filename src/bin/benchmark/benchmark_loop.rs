@@ -124,6 +124,18 @@ pub fn lantency_loop<'a>(
                     );
                 }
             }
+            Operation::Range(RangeOperation::Put(PutOperation::Put)) => {
+                if my_pe < num_concurrency {
+                    record_latency(
+                        running,
+                        epoch_per_iteration,
+                        &mut final_latency,
+                        &cycles,
+                        now,
+                        my_pe,
+                    );
+                }
+            }
             Operation::Range(RangeOperation::Broadcast(BroadcastOperation::Broadcast)) => {
                 if my_pe == 0 {
                     record_latency(
