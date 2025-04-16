@@ -4,6 +4,39 @@ let second_host = $env.PEER
 let device = $env.DEVICE? | default "mlx5_1:1"
 cargo build --release
 
+def "main profile" [] {
+    print $second_host
+    let num_pe = 1
+    let operation = { "group": "range", "operation": "put" }
+    let latency = false
+    let epoch_size = 4096
+    let data_size = 8
+    let duration = 10
+    let iterations = 10000
+    let num_working_set = 1
+    let additional_args = []
+
+    let hosts = $"localhost:($num_pe),($second_host):($num_pe)"
+    let operation = ( $operation | transpose | get column1)
+
+    let latency = if $latency {
+        ["--latency"]
+    } else {
+        []
+    }
+
+    (oshrun --wdir . --host $hosts --mca coll_ucc_enable 0 --mca scoll_ucc_enable 1 --mca scoll_ucc_priority 100 -x UCC_TL_MLX5_NET_DEVICES=($device) -x UCX_NET_DEVICES=($device) -x UCX_RC_MLX5_DM_COUNT=0 -x UCX_DC_MLX5_DM_COUNT=0
+        cargo flamegraph
+        ...$operation
+        --epoch-size $epoch_size
+        -s $data_size
+        -d $duration
+        -n $iterations
+        -w $num_working_set
+        ...$latency
+        ...$additional_args)
+}
+
 def execute [
     operation: record
     --epoch_size: int
@@ -42,17 +75,18 @@ def "main" [] {
 }
 
 def "main test" [
-    --epoch_size (-e): int = 128
+    --epoch_size (-e): int = 16
     --data_size (-s): int = 8
-    --iterations (-i): int = 1000
-    --operation (-o): record = { "group": "range", "operation": "all-to-all" }
-    --duration: int = 5
-    --num_pe: int = 1
+    --iterations (-i): int = 10000
+    --operation (-o): record = { "group": "range", "operation": "put" }
+    --duration: int = 10
+    --num_pe: int = 2
     --num_working_set: int = 1
     --additional_args: list<string> = []
+    --latency
 ] {
     cargo build --release
-    execute $operation --epoch_size $epoch_size --data_size $data_size --iterations $iterations --duration $duration --num_pe $num_pe --num_working_set $num_working_set --additional_args $additional_args
+    execute $operation --epoch_size $epoch_size --data_size $data_size --iterations $iterations --duration $duration --num_pe $num_pe --num_working_set $num_working_set --additional_args $additional_args --latency=$latency
 }
 
 def merge_group [] {
@@ -83,7 +117,7 @@ def single_bench [operation: record, epoch_size: int, data_size: int, iterations
             print $output
             let output_lines = $output | lines
             let throughput = ($output_lines | where ($it starts-with "PE"))
-            if len($throughput) == 0 {
+            if ($throughput | length) == 0 {
                 print "No throughput found in output."
                 print "Output: ($output)"
                 sleep 1sec
@@ -134,13 +168,23 @@ def nested_each [items, f: closure, args: list = [], additional_args: record = {
     }
 }
 
+def pow [base: int] : [
+    list<int> -> list<int>
+    range -> list<int>
+] {
+    $in | each {|x|
+        $base ** $x
+    }
+}
+
 def "main bench" [] {
     main bench rma
     main bench atomic
     main bench latency
     main bench broadcast
     main bench alltoall
-    main bench put-get
+    main bench ycsb
+    main bench trace
 }
 
 def "main bench rma" [] {
@@ -173,7 +217,7 @@ def "main bench rma" [] {
 
 def "main bench atomic" [] {
     let iterations = 500
-    let num_pes = [ 1 2 4 6 8 10 ]
+    let num_pes = 1..10
     let epoch_sizes = [4096]
     let data_sizes = [1] # Atomic operations are not supported for larger data sizes
     let duration = 15
@@ -203,21 +247,21 @@ def "main bench latency" [] {
     let operations = [
         ["group", "op"];
         ["range" "get"]
-        ["atomic" "atomic-i32"]
-        ["range" "atomic-i64"]
+        ["atomic" "fetch-add32"]
+        ["range" "fetch-add64"]
     ]
 
     let iterations = 10000
     let epoch_sizes = [1]
     let $data_sizes = [8]
-    let num_pes = [ 1 2 4 6 8 10 ]
+    let num_pes = 1..10
     let duration = 10
 
     let records_latency = nested_each [$operations $num_pes $epoch_sizes $data_sizes] {|$operation: record num_pe: int epoch_size: int data_size: int|
         single_bench $operation $epoch_size $data_size $iterations $num_pe $duration --latency
     }
 
-    $records_latency | merge_group | save "throughputs-latency.json" -f
+    $records_latency | merge_group | save "latency.json" -f
 }
 
 def "main bench broadcast" [] {
@@ -226,7 +270,7 @@ def "main bench broadcast" [] {
     let iterations = 1000
     let epoch_sizes = [4096]
     let data_sizes = [8]
-    let num_pes = [ 1 2 4 8 16 32 ]
+    let num_pes = (0..5 | pow 2)
     let duration = 20
 
     let records_broadcast = nested_each [$num_pes $epoch_sizes $data_sizes] {|num_pe: int epoch_size: int data_size: int|
@@ -243,7 +287,7 @@ def "main bench alltoall" [] {
     let iterations = 100
     let epoch_sizes = [4096]
     let data_sizes = [8]
-    let num_pes = [ 1 2 4 6 8 10 ]
+    let num_pes = 1..10
     let duration = 20
 
     let records_broadcast = nested_each [$num_pes $epoch_sizes $data_sizes] {|num_pe: int epoch_size: int data_size: int|
@@ -254,38 +298,32 @@ def "main bench alltoall" [] {
 }
 
 
-def "main bench put-get" [] {
+def "main bench ycsb" [] {
     cargo build --release
 
     let iterations = 1000
     let epoch_sizes = [4096]
     let data_sizes = [8]
-    let num_pes = [ 1 2 4 6 8 10 ]
+    let num_pes = 1..10
     let duration = 10
 
-    let records_uniform_put_get = nested_each [$num_pes $epoch_sizes $data_sizes] {|num_pe: int epoch_size: int data_size: int|
+    let records_ycsb_a = nested_each [$num_pes $epoch_sizes $data_sizes] {|num_pe: int epoch_size: int data_size: int|
         single_bench { "group": "range", "op": "put-get" } $epoch_size $data_size $iterations $num_pe $duration --additional_args ["--put-ratio", "0.5"]
     }
 
-    $records_uniform_put_get | merge_group | save "throughputs-uniform-put-get.json" -f
+    $records_ycsb_a | merge_group | save "throughputs-ycsb-a.json" -f
 
-    let records_5_put_get = nested_each [$num_pes $epoch_sizes $data_sizes] {|num_pe: int epoch_size: int data_size: int|
+    let records_ycsb_b = nested_each [$num_pes $epoch_sizes $data_sizes] {|num_pe: int epoch_size: int data_size: int|
         single_bench { "group": "range", "op": "put-get" } $epoch_size $data_size $iterations $num_pe $duration --additional_args ["--put-ratio", "0.05"]
     }
 
-    $records_5_put_get | merge_group | save "throughputs-5-put-get.json" -f
+    $records_ycsb_b | merge_group | save "throughputs-ycsb-b.json" -f
 
-    let records_one_put_one_get = nested_each [$num_pes $epoch_sizes $data_sizes] {|num_pe: int epoch_size: int data_size: int|
-        single_bench { "group": "range", "op": "put-get" } $epoch_size $data_size $iterations $num_pe $duration --additional_args ["--op-sequence", "put,get"]
+    let records_ycsb_f = nested_each [$num_pes $epoch_sizes $data_sizes] {|num_pe: int epoch_size: int data_size: int|
+        single_bench { "group": "range", "op": "put-get" } $epoch_size $data_size $iterations $num_pe $duration --additional_args ["--op-sequence", "get,put,get"]
     }
 
-    $records_one_put_one_get | merge_group | save "throughputs-one-put-one-get.json" -f
-
-    let records_one_get_one_put = nested_each [$num_pes $epoch_sizes $data_sizes] {|num_pe: int epoch_size: int data_size: int|
-        single_bench { "group": "range", "op": "put-get" } $epoch_size $data_size $iterations $num_pe $duration --additional_args ["--op-sequence", "get,put"]
-    }
-
-    $records_one_put_one_get | merge_group | save "throughputs-one-get-one-put.json" -f   
+    $records_ycsb_f | merge_group | save "throughputs-ycsb-f.json" -f   
 }
 
 def "main bench trace" [] {
@@ -295,7 +333,7 @@ def "main bench trace" [] {
         let iterations = 1000
         let epoch_sizes = [4096]
         let data_sizes = [8]
-        let num_pes = [ 1 ]
+        let num_pes = 1..10
         let duration = 10
 
         let records_uniform_put_get = nested_each [$num_pes $epoch_sizes $data_sizes] {|num_pe: int epoch_size: int data_size: int|
