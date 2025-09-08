@@ -15,7 +15,7 @@ use openshmem_sys::_SHMEM_SYNC_VALUE;
 use crate::{
     RangeBenchmarkData,
     ops::{
-        self, AtomicOperation, BroadcastOperation, GetOperation, Operation, PutGetOp,
+        self, AtomicOperation, BroadcastOperation, GetOperation, Operation, OpenShmemOp,
         PutGetOperation, PutOperation, RangeOperation,
     },
 };
@@ -346,19 +346,25 @@ pub fn bandwidth_loop<'a>(
                                 }
                             } else if let Some(op_seq) = put_get_op_seq.as_mut() {
                                 match op_seq.next().as_ref().unwrap() {
-                                    PutGetOp::Put => {
+                                    OpenShmemOp::Put => {
                                         if *blocking {
                                             src.put_to(dst, (my_pe + num_concurrency) as i32);
                                         } else {
                                             src.put_to_nbi(dst, (my_pe + num_concurrency) as i32);
                                         }
                                     }
-                                    PutGetOp::Get => {
+                                    OpenShmemOp::Get => {
                                         if *blocking {
                                             src.get_from(dst, (my_pe + num_concurrency) as i32);
                                         } else {
                                             src.get_from_nbi(dst, (my_pe + num_concurrency) as i32);
                                         }
+                                    },
+                                    OpenShmemOp::Barrier => {
+                                        scope.barrier_all();
+                                    }
+                                    OpenShmemOp::Fence => {
+                                        scope.fence();
                                     }
                                 }
                             } else {

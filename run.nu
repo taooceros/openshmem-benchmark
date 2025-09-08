@@ -4,6 +4,24 @@ let second_host = $env.PEER
 let device = $env.DEVICE? | default "mlx5_1:1"
 cargo build --release
 
+def "main run trace" [file: string] {
+    cargo build --release
+
+    let hosts = $"localhost:1,($second_host):1"
+
+    (oshrun 
+    -n 2
+    --wdir . 
+    --host $hosts 
+    --mca coll_ucc_enable 0 
+    --mca scoll_ucc_enable 1 
+    --mca scoll_ucc_priority 100 
+    -x UCC_TL_MLX5_NET_DEVICES=($device) 
+    -x UCX_NET_DEVICES=($device) 
+    -x UCX_RC_MLX5_DM_COUNT=0 -x UCX_DC_MLX5_DM_COUNT=0 
+    ./target/release/trace-execution --trace-file $file)
+}
+
 def "main profile" [] {
     print $second_host
     let num_pe = 1

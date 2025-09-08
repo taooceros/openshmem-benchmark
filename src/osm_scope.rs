@@ -38,4 +38,8 @@ impl OsmScope {
     pub fn quiet(&self) {
         unsafe { shmem_quiet() }
     }
+
+    pub fn fence(&self) {
+        unsafe { shmem_fence() }
+    }
 }

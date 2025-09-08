@@ -33,7 +33,7 @@ pub enum RangeOperation {
         #[arg(global = true, long)]
         put_ratio: Option<f64>,
         #[arg(global = true, long, value_delimiter = ',', num_args = 0..)]
-        op_sequence: Option<Vec<PutGetOp>>,
+        op_sequence: Option<Vec<OpenShmemOp>>,
         #[arg(global = true, long)]
         op_sequence_file: Option<String>,
         #[arg(global = true, long)]
@@ -47,9 +47,11 @@ pub enum RangeOperation {
 }
 
 #[derive(ValueEnum, Serialize, Deserialize, Debug, Clone, Copy, Display, PartialEq)]
-pub enum PutGetOp {
+pub enum OpenShmemOp {
     Put,
     Get,
+    Barrier,
+    Fence,
 }
 
 #[derive(Subcommand, Debug, Clone, Copy, Display, PartialEq)]
@@ -83,11 +85,11 @@ pub enum AtomicOperation {
     CompareAndSwap64,
 }
 
-pub(crate) fn read_op_sequence(unwrapped: &Path) -> Vec<PutGetOp> {
+pub(crate) fn read_op_sequence(unwrapped: &Path) -> Vec<OpenShmemOp> {
     // use serde read json file
     let file = std::fs::File::open(unwrapped).expect("Failed to open file");
     let reader = std::io::BufReader::new(file);
-    let deserialized: Vec<PutGetOp> =
+    let deserialized: Vec<OpenShmemOp> =
         serde_json::from_reader(reader).expect("Failed to deserialize JSON");
 
     return deserialized;
