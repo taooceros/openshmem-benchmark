@@ -53,8 +53,6 @@ pub fn run(operations: Vec<Operation>) {
             OperationType::GetNonBlocking => src.get_from_nbi(&dst, 1),
             OperationType::Barrier => {
                 scope.barrier_all();
-                barrier_counter += 1;
-                println!("Barrier {}", barrier_counter);
             }
             OperationType::Fence => scope.fence(),
             OperationType::FetchAdd32 => {

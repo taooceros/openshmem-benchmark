@@ -76,7 +76,7 @@ def execute [
         []
     }
 
-    (oshrun --wdir . --host $hosts --mca coll_ucc_enable 0 --mca scoll_ucc_enable 1 --mca scoll_ucc_priority 100 -x UCC_TL_MLX5_NET_DEVICES=($device) -x UCX_NET_DEVICES=($device) -x UCX_RC_MLX5_DM_COUNT=0 -x UCX_DC_MLX5_DM_COUNT=0
+    (oshrun --wdir . --host $hosts --mca coll_ucc_enable 0 --mca scoll_ucc_enable 1 --mca scoll_ucc_priority 100 -x UCC_TL_MLX5_NET_DEVICES=($device) -x UCX_NET_DEVICES=($device) -x UCX_TLS=rc -x UCX_RC_MLX5_DM_COUNT=0 -x UCX_DC_MLX5_DM_COUNT=0
         ./target/release/benchmark
         ...$operation
         --epoch-size $epoch_size
