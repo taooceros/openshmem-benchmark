@@ -13,7 +13,6 @@ use crate::operations::{Operation, OperationType};
 pub fn run(operations: Vec<Operation>) {
     let scope = osm_scope::OsmScope::init();
 
-
     let mut false_signal = OsmBox::new(AtomicBool::new(false), &scope);
     let mut running = OsmBox::new(AtomicBool::new(true), &scope);
 
@@ -27,14 +26,11 @@ pub fn run(operations: Vec<Operation>) {
 
     scope.barrier_all();
 
-    let start = Instant::now();
-
     eprintln!("Running {} operations", operations.len());
     eprintln!("Max data size: {}", max_data_size);
     eprintln!("Number of PEs: {}", scope.num_pes());
     eprintln!("My PE: {}", scope.my_pe());
 
-    
     if scope.my_pe() == 1 {
         let mut counter = 0;
         while running.load(std::sync::atomic::Ordering::SeqCst) {
@@ -42,6 +38,11 @@ pub fn run(operations: Vec<Operation>) {
         }
         return;
     }
+
+
+    scope.barrier_all();
+    
+    let start = Instant::now();
 
     let mut barrier_counter = 0;
 
@@ -71,15 +72,17 @@ pub fn run(operations: Vec<Operation>) {
         }
     }
 
+    scope.barrier_all();
+    let end = Instant::now();
 
     false_signal.store(false, std::sync::atomic::Ordering::SeqCst);
     scope.barrier_all();
     false_signal.put_to_nbi(&mut running, 1);
     scope.barrier_all();
 
-
-    let end = Instant::now();
-
     println!("Time taken: {:?}", end.duration_since(start));
-    println!("Op/s: {:?}", operations.len() as f64 / end.duration_since(start).as_secs_f64());
+    println!(
+        "Op/s: {:?}",
+        operations.len() as f64 / end.duration_since(start).as_secs_f64()
+    );
 }
