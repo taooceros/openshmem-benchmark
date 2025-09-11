@@ -1,17 +1,15 @@
-use std::{
-    mem::transmute,
-    ops::{Deref, DerefMut, Index, IndexMut},
-};
+use std::ops::{Deref, DerefMut, Index, IndexMut};
 
 use openshmem_sys::{
-    _SHMEM_SYNC_VALUE, SHMEM_BARRIER_SYNC_SIZE, shmem_alltoall64, shmem_broadcast64,
-    shmem_getmem, shmem_getmem_nbi, shmem_int_atomic_fetch_add,
-    shmem_int_cswap, shmem_long_atomic_fetch_add,
+    _SHMEM_SYNC_VALUE, SHMEM_BARRIER_SYNC_SIZE, shmem_alltoall64, shmem_broadcast64, shmem_getmem,
+    shmem_getmem_nbi, shmem_int_atomic_fetch_add, shmem_int_cswap, shmem_long_atomic_fetch_add,
     shmem_long_cswap, shmem_putmem, shmem_putmem_nbi,
 };
+use ref_cast::RefCast;
 
 use crate::{osm_vec::ShVec, osm_wrapper::OsmWrapper};
 
+#[derive(Debug, RefCast)]
 #[repr(transparent)]
 pub struct OsmSlice<T> {
     data: [T],
@@ -21,14 +19,14 @@ impl<T> OsmSlice<T> {
     pub unsafe fn from_raw_parts<'a>(ptr: *mut T, len: usize) -> &'a Self {
         unsafe {
             let data = std::slice::from_raw_parts(ptr, len);
-            transmute(data)
+            OsmSlice::ref_cast(data)
         }
     }
 
     pub unsafe fn from_raw_parts_mut<'a>(ptr: *mut T, len: usize) -> &'a mut Self {
         unsafe {
             let data = std::slice::from_raw_parts_mut(ptr, len);
-            transmute(data)
+            OsmSlice::ref_cast_mut(data)
         }
     }
 }
@@ -52,10 +50,7 @@ impl<T> Index<usize> for OsmSlice<T> {
     type Output = OsmWrapper<T>;
 
     fn index(&self, index: usize) -> &Self::Output {
-        unsafe {
-            let element_ptr = self.data.as_ptr().add(index) as *mut T;
-            &*(element_ptr as *mut OsmWrapper<T>)
-        }
+        OsmWrapper::ref_cast(&self.data[index])
     }
 }
 
@@ -74,22 +69,14 @@ impl<T> Index<std::ops::Range<usize>> for OsmSlice<T> {
     type Output = OsmSlice<T>;
 
     fn index(&self, index: std::ops::Range<usize>) -> &Self::Output {
-        unsafe {
-            let subslice = &self.data[index];
-            // Create OsmSlice from the subslice
-            OsmSlice::from_raw_parts(subslice.as_ptr() as *mut T, subslice.len())
-        }
+        OsmSlice::ref_cast(&self.data[index])
     }
 }
 
 // IndexMut with Range types returns mutable OsmSlice for slice access
 impl<T> IndexMut<std::ops::Range<usize>> for OsmSlice<T> {
     fn index_mut(&mut self, index: std::ops::Range<usize>) -> &mut Self::Output {
-        unsafe {
-            let subslice = &mut self.data[index];
-            // Create mutable OsmSlice from the subslice
-            OsmSlice::from_raw_parts_mut(subslice.as_mut_ptr(), subslice.len())
-        }
+        OsmSlice::ref_cast_mut(&mut self.data[index])
     }
 }
 
@@ -98,19 +85,13 @@ impl<T> Index<std::ops::RangeFrom<usize>> for OsmSlice<T> {
     type Output = OsmSlice<T>;
 
     fn index(&self, index: std::ops::RangeFrom<usize>) -> &Self::Output {
-        unsafe {
-            let subslice = &self.data[index];
-            OsmSlice::from_raw_parts(subslice.as_ptr() as *mut T, subslice.len())
-        }
+        OsmSlice::ref_cast(&self.data[index])
     }
 }
 
 impl<T> IndexMut<std::ops::RangeFrom<usize>> for OsmSlice<T> {
     fn index_mut(&mut self, index: std::ops::RangeFrom<usize>) -> &mut Self::Output {
-        unsafe {
-            let subslice = &mut self.data[index];
-            OsmSlice::from_raw_parts_mut(subslice.as_mut_ptr(), subslice.len())
-        }
+        OsmSlice::ref_cast_mut(&mut self.data[index])
     }
 }
 
@@ -119,19 +100,13 @@ impl<T> Index<std::ops::RangeTo<usize>> for OsmSlice<T> {
     type Output = OsmSlice<T>;
 
     fn index(&self, index: std::ops::RangeTo<usize>) -> &Self::Output {
-        unsafe {
-            let subslice = &self.data[index];
-            OsmSlice::from_raw_parts(subslice.as_ptr() as *mut T, subslice.len())
-        }
+        OsmSlice::ref_cast(&self.data[index])
     }
 }
 
 impl<T> IndexMut<std::ops::RangeTo<usize>> for OsmSlice<T> {
     fn index_mut(&mut self, index: std::ops::RangeTo<usize>) -> &mut Self::Output {
-        unsafe {
-            let subslice = &mut self.data[index];
-            OsmSlice::from_raw_parts_mut(subslice.as_mut_ptr(), subslice.len())
-        }
+        OsmSlice::ref_cast_mut(&mut self.data[index])
     }
 }
 
@@ -140,19 +115,13 @@ impl<T> Index<std::ops::RangeInclusive<usize>> for OsmSlice<T> {
     type Output = OsmSlice<T>;
 
     fn index(&self, index: std::ops::RangeInclusive<usize>) -> &Self::Output {
-        unsafe {
-            let subslice = &self.data[index];
-            OsmSlice::from_raw_parts(subslice.as_ptr() as *mut T, subslice.len())
-        }
+        OsmSlice::ref_cast(&self.data[index])
     }
 }
 
 impl<T> IndexMut<std::ops::RangeInclusive<usize>> for OsmSlice<T> {
     fn index_mut(&mut self, index: std::ops::RangeInclusive<usize>) -> &mut Self::Output {
-        unsafe {
-            let subslice = &mut self.data[index];
-            OsmSlice::from_raw_parts_mut(subslice.as_mut_ptr(), subslice.len())
-        }
+        OsmSlice::ref_cast_mut(&mut self.data[index])
     }
 }
 
@@ -161,19 +130,13 @@ impl<T> Index<std::ops::RangeToInclusive<usize>> for OsmSlice<T> {
     type Output = OsmSlice<T>;
 
     fn index(&self, index: std::ops::RangeToInclusive<usize>) -> &Self::Output {
-        unsafe {
-            let subslice = &self.data[index];
-            OsmSlice::from_raw_parts(subslice.as_ptr() as *mut T, subslice.len())
-        }
+        OsmSlice::ref_cast(&self.data[index])
     }
 }
 
 impl<T> IndexMut<std::ops::RangeToInclusive<usize>> for OsmSlice<T> {
     fn index_mut(&mut self, index: std::ops::RangeToInclusive<usize>) -> &mut Self::Output {
-        unsafe {
-            let subslice = &mut self.data[index];
-            OsmSlice::from_raw_parts_mut(subslice.as_mut_ptr(), subslice.len())
-        }
+        OsmSlice::ref_cast_mut(&mut self.data[index])
     }
 }
 
@@ -309,4 +272,3 @@ impl<T> OsmSlice<T> {
         }
     }
 }
-
