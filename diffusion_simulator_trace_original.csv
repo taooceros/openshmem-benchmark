@@ -1,4 +1,4 @@
-op,src,dst,bytes
+op_type,src,dst,size
 BARRIER,-1,-1,0
 BARRIER,-1,-1,0
 PUT,0,1,262144
