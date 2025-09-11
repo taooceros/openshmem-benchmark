@@ -47,17 +47,53 @@ impl<T> DerefMut for OsmSlice<T> {
     }
 }
 
-impl<T> Index<usize> for OsmSlice<T> {
-    type Output = OsmWrapper<T>;
+impl<T, R> Index<R> for OsmSlice<T>
+where
+    R: std::ops::RangeBounds<usize>,
+{
+    type Output = OsmSlice<T>;
 
-    fn index(&self, index: usize) -> &Self::Output {
-        unsafe { transmute(&self.data[index]) }
+    fn index(&self, index: R) -> &Self::Output {
+        unsafe {
+            let start = match index.start_bound() {
+                std::ops::Bound::Included(start) => *start,
+                std::ops::Bound::Excluded(start) => *start + 1,
+                std::ops::Bound::Unbounded => 0,
+            };
+            let end = match index.end_bound() {
+                std::ops::Bound::Included(end) => *end + 1,
+                std::ops::Bound::Excluded(end) => *end,
+                std::ops::Bound::Unbounded => self.len(),
+            };
+
+            assert!(start + end <= self.len());
+
+            OsmSlice::from_raw_parts(self.data.as_ptr().add(start) as *mut T, end - start)
+        }
     }
 }
 
-impl<T> IndexMut<usize> for OsmSlice<T> {
-    fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        unsafe { transmute(&mut self.data[index]) }
+impl<T, R> IndexMut<R> for OsmSlice<T>
+where
+    R: std::ops::RangeBounds<usize>,
+{
+    fn index_mut(&mut self, index: R) -> &mut Self::Output {
+        unsafe {
+            let start = match index.start_bound() {
+                std::ops::Bound::Included(start) => *start,
+                std::ops::Bound::Excluded(start) => *start + 1,
+                std::ops::Bound::Unbounded => 0,
+            };
+            let end = match index.end_bound() {
+                std::ops::Bound::Included(end) => *end + 1,
+                std::ops::Bound::Excluded(end) => *end,
+                std::ops::Bound::Unbounded => self.len(),
+            };
+
+            assert!(start + end <= self.len());
+
+            OsmSlice::from_raw_parts_mut(self.data.as_ptr().add(start) as *mut T, end - start)
+        }
     }
 }
 

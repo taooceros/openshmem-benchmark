@@ -39,19 +39,18 @@ pub fn run(operations: Vec<Operation>) {
         return;
     }
 
-
     scope.barrier_all();
-    
+
     let start = Instant::now();
 
     let mut barrier_counter = 0;
 
     for operation in operations.iter() {
         match operation.op_type {
-            OperationType::Put => src.put_to(&mut dst, 1),
-            OperationType::Get => src.get_from(&dst, 1),
-            OperationType::PutNonBlocking => src.put_to_nbi(&mut dst, 1),
-            OperationType::GetNonBlocking => src.get_from_nbi(&dst, 1),
+            OperationType::Put => src[..operation.size].put_to(&mut dst, 1),
+            OperationType::Get => src[..operation.size].get_from(&dst, 1),
+            OperationType::PutNonBlocking => src[..operation.size].put_to_nbi(&mut dst, 1),
+            OperationType::GetNonBlocking => src[..operation.size].get_from_nbi(&dst, 1),
             OperationType::Barrier => {
                 scope.barrier_all();
             }

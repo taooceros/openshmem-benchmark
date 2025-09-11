@@ -1,6 +1,11 @@
-use std::ops::{Deref, DerefMut};
+use std::{
+    mem::transmute,
+    ops::{Deref, DerefMut, Index, IndexMut},
+};
 
-use crate::{osm_alloc::OsmMalloc, osm_scope::OsmScope, osm_slice::OsmSlice};
+use crate::{
+    osm_alloc::OsmMalloc, osm_scope::OsmScope, osm_slice::OsmSlice, osm_wrapper::OsmWrapper,
+};
 
 #[derive(Debug)]
 pub struct ShVec<'a, T> {
