@@ -45,7 +45,7 @@ pub fn run(operations: Vec<Operation>) {
 
     let mut barrier_counter = 0;
 
-    for operation in operations {
+    for operation in operations.iter() {
         match operation.op_type {
             OperationType::Put => src.put_to(&mut dst, 1),
             OperationType::Get => src.get_from(&dst, 1),
@@ -81,4 +81,5 @@ pub fn run(operations: Vec<Operation>) {
     let end = Instant::now();
 
     println!("Time taken: {:?}", end.duration_since(start));
+    println!("Op/s: {:?}", operations.len() as f64 / end.duration_since(start).as_secs_f64());
 }
