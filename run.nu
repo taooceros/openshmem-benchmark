@@ -4,13 +4,31 @@ let second_host = $env.PEER
 let device = $env.DEVICE? | default "mlx5_1:1"
 cargo build --release
 
-def "main run trace" [file: string] {
+def "main bench trace2" [] {
+    cargo build --release
+
+    let files = [
+        "gmm_pe_0.event_bytes.csv",
+        diffusion_simulator_trace_ondemand.csv
+        diffusion_simulator_trace_original.csv
+    ]
+
+    let num_pes = 1..2
+
+    let records = nested_each [$num_pes $files] {|num_pe: int file: string|
+        main run trace $file $num_pe
+    }
+
+    print $records
+}
+
+def "main run trace" [file: string, num_pes: int] {
     cargo build --release
 
     let hosts = $"localhost:1,($second_host):1"
 
-    (oshrun 
-    -n 2
+    (oshrun
+    -n $num_pes * 2
     --wdir . 
     --host $hosts 
     --mca coll_ucc_enable 0 
@@ -19,7 +37,7 @@ def "main run trace" [file: string] {
     -x UCC_TL_MLX5_NET_DEVICES=($device) 
     -x UCX_NET_DEVICES=($device) 
     -x UCX_RC_MLX5_DM_COUNT=0 -x UCX_DC_MLX5_DM_COUNT=0 
-    ./target/release/trace-execution --trace-file $file)
+    ./target/release/trace-execution --trace-file $file) | lines | where {|it| $it | str starts-with "Op/s"} | get 0 | parse "Op/s: {throughput}" | get throughput | into float
 }
 
 def "main profile" [] {
@@ -211,15 +229,15 @@ def "main bench rma" [] {
     
     let operations = [
         ["group", "op"];
-        ["range", "put"]
-        ["range", "get"]
+        # ["range", "put"]
+        # ["range", "get"]
         ["range", "put-non-blocking"]
         ["range", "get-non-blocking"]
         # ["range", "broadcast"]
     ]
-    let num_pes = 1..10
-    let epoch_sizes = [ 4096 ] # [ 1024 2048 4096 8192 ]
-    let data_sizes = [8] # [1 8 64 128 1024 4096]
+    let num_pes = [1]
+    let epoch_sizes = [ 1024 ] # [ 1024 2048 4096 8192 ]
+    let data_sizes = [1 2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536] # [1 8 64 128 1024 4096]
     let duration = 10
 
     let records = nested_each [$operations $num_pes $epoch_sizes $data_sizes] {|$operation: record num_pe: int epoch_size: int data_size: int|
@@ -363,7 +381,7 @@ def "main bench trace" [] {
 }
 
 def "main transform-trace" [] {
-    ls spmm*.json | each {|trace_file|
+    ls throughputs.json | each {|trace_file|
         let trace_file = $trace_file.name
         let trace = (open $trace_file)
         let trace = $trace | each {|row|
