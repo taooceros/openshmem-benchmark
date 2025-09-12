@@ -31,15 +31,16 @@ pub fn run(operations: Vec<Operation>) {
     eprintln!("Number of PEs: {}", scope.num_pes());
     eprintln!("My PE: {}", scope.my_pe());
 
-    if scope.my_pe() == 1 {
+    let my_pe = scope.my_pe();
+    let num_pes = scope.num_pes() / 2;
+
+    if scope.my_pe() >= num_pes {
         let mut counter = 0;
         while running.load(std::sync::atomic::Ordering::SeqCst) {
             scope.barrier_all();
         }
         return;
     }
-    let my_pe = scope.my_pe();
-    let num_pes = scope.num_pes() / 2;
 
     scope.barrier_all();
 
