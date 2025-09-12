@@ -34,6 +34,10 @@ pub fn run(operations: Vec<Operation>) {
     let my_pe = scope.my_pe();
     let num_pes = scope.num_pes() / 2;
 
+    scope.barrier_all();
+    
+    let start = Instant::now();
+
     if scope.my_pe() >= num_pes {
         let mut counter = 0;
         for operation in operations.iter() {
@@ -42,40 +46,37 @@ pub fn run(operations: Vec<Operation>) {
                 _ => {}
             }
         }
-        return;
-    }
-
-    scope.barrier_all();
-
-    let start = Instant::now();
-
-    for operation in operations.iter() {
-        match operation.op_type {
-            OperationType::Put => src[..operation.size].put_to(&mut dst, my_pe + num_pes as i32),
-            OperationType::Get => src[..operation.size].get_from(&dst, my_pe + num_pes as i32),
-            OperationType::PutNonBlocking => {
-                src[..operation.size].put_to_nbi(&mut dst, num_pes as i32)
+    } else {
+        for operation in operations.iter() {
+            match operation.op_type {
+                OperationType::Put => {
+                    src[..operation.size].put_to(&mut dst, my_pe + num_pes as i32)
+                }
+                OperationType::Get => src[..operation.size].get_from(&dst, my_pe + num_pes as i32),
+                OperationType::PutNonBlocking => {
+                    src[..operation.size].put_to_nbi(&mut dst, num_pes as i32)
+                }
+                OperationType::GetNonBlocking => {
+                    src[..operation.size].get_from_nbi(&dst, my_pe + num_pes as i32)
+                }
+                OperationType::Barrier => {
+                    scope.barrier_all();
+                }
+                OperationType::Fence => scope.fence(),
+                OperationType::FetchAdd32 => {
+                    src.fetch_add_i32(1, my_pe + num_pes as i32);
+                }
+                OperationType::FetchAdd64 => {
+                    src.fetch_add_i64(1, my_pe + num_pes as i32);
+                }
+                OperationType::CompareAndSwap32 => {
+                    src.compare_and_swap_i32(1, 1, my_pe + num_pes as i32);
+                }
+                OperationType::CompareAndSwap64 => {
+                    src.compare_and_swap_i64(1, 1, my_pe + num_pes as i32);
+                }
+                _ => panic!("Unsupported operation"),
             }
-            OperationType::GetNonBlocking => {
-                src[..operation.size].get_from_nbi(&dst, my_pe + num_pes as i32)
-            }
-            OperationType::Barrier => {
-                scope.barrier_all();
-            }
-            OperationType::Fence => scope.fence(),
-            OperationType::FetchAdd32 => {
-                src.fetch_add_i32(1, my_pe + num_pes as i32);
-            }
-            OperationType::FetchAdd64 => {
-                src.fetch_add_i64(1, my_pe + num_pes as i32);
-            }
-            OperationType::CompareAndSwap32 => {
-                src.compare_and_swap_i32(1, 1, my_pe + num_pes as i32);
-            }
-            OperationType::CompareAndSwap64 => {
-                src.compare_and_swap_i64(1, 1, my_pe + num_pes as i32);
-            }
-            _ => panic!("Unsupported operation"),
         }
     }
 
