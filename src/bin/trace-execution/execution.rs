@@ -36,8 +36,11 @@ pub fn run(operations: Vec<Operation>) {
 
     if scope.my_pe() >= num_pes {
         let mut counter = 0;
-        while running.load(std::sync::atomic::Ordering::SeqCst) {
-            scope.barrier_all();
+        for operation in operations.iter() {
+            match operation.op_type {
+                OperationType::Barrier => scope.barrier_all(),
+                _ => {}
+            }
         }
         return;
     }
