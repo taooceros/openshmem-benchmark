@@ -28,7 +28,7 @@ def "main run trace" [file: string, num_pes: int] {
     let hosts = $"localhost:1,($second_host):1"
 
     (oshrun
-    -n $num_pes * 2
+    -n ($num_pes * 2)
     --wdir . 
     --host $hosts 
     --mca coll_ucc_enable 0 
