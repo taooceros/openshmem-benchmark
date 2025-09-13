@@ -13,19 +13,25 @@ def "main bench trace2" [] {
         diffusion_simulator_trace_original.csv
     ]
 
-    let num_pes = 1..2
+    let num_pes = [1 2 4 8 16 32]
 
     let records = nested_each [$num_pes $files] {|num_pe: int file: string|
-        main run trace $file $num_pe
+        { 
+            "file": $file, 
+            "num_pe": $num_pe, 
+            "record": (main run trace $file $num_pe)
+        }
     }
 
     print $records
+
+    $records | save "trace2.json" -f
 }
 
 def "main run trace" [file: string, num_pes: int] {
     cargo build --release
 
-    let hosts = $"localhost:1,($second_host):1"
+    let hosts = $"localhost:($num_pes),($second_host):($num_pes)"
 
     (oshrun
     -n ($num_pes * 2)
