@@ -20,6 +20,8 @@ pub enum OperationType {
 pub struct Operation {
     pub op_type: OperationType,
     pub size: usize,
+    #[serde(default)] 
     pub src: i32,
+    #[serde(default)] 
     pub dst: i32,
 }
