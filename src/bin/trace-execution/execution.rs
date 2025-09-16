@@ -60,7 +60,7 @@ pub fn run(operations: Vec<Operation>) {
                     src[..operation.size].get_from_nbi(&dst, my_pe + num_pes as i32)
                 }
                 OperationType::Barrier => {
-                    scope.barrier_all();
+                    // scope.barrier_all();
                 }
                 OperationType::Fence => scope.fence(),
                 OperationType::FetchAdd32 => {
