@@ -20,6 +20,4 @@ pub enum OperationType {
 pub struct Operation {
     pub op_type: OperationType,
     pub size: usize,
-    pub src: usize,
-    pub dst: usize,
 }
