@@ -10,8 +10,7 @@ use quanta::Instant;
 
 use crate::operations::{Operation, OperationType};
 
-pub fn run(operations: Vec<Operation>) {
-    let scope = osm_scope::OsmScope::init();
+pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> f64 {
 
     let mut false_signal = OsmBox::new(AtomicBool::new(false), &scope);
     let mut running = OsmBox::new(AtomicBool::new(true), &scope);
@@ -88,9 +87,5 @@ pub fn run(operations: Vec<Operation>) {
     false_signal.put_to_nbi(&mut running, 1);
     scope.barrier_all();
 
-    println!("Time taken: {:?}", end.duration_since(start));
-    println!(
-        "Op/s: {:?}",
-        operations.len() as f64 / end.duration_since(start).as_secs_f64()
-    );
+    return end.duration_since(start).as_secs_f64();
 }

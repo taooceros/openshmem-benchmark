@@ -3,6 +3,7 @@ pub mod operations;
 use std::{fs::File, io::BufReader};
 
 use clap::Parser;
+use openshmem_benchmark::osm_scope;
 
 use crate::operations::Operation;
 
@@ -24,6 +25,15 @@ fn main() {
         .deserialize::<Operation>()
         .map(|e| e.unwrap())
         .collect::<Vec<_>>();
+    let scope = osm_scope::OsmScope::init();
 
-    execution::run(operations);
+    let mut times = Vec::new();
+    for trial in 1..10 {
+        let time = execution::run(&operations, &scope);
+        println!("Trial {}: {}", trial, time);
+        times.push(time);
+    }
+
+    let throughput = operations.len() as f64 / times.iter().sum::<f64>() / times.len() as f64;
+    println!("Op/s average: {}", throughput);
 }
