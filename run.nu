@@ -43,6 +43,7 @@ def "main run trace" [file: string, num_pes: int] {
     -x UCC_TL_MLX5_NET_DEVICES=($device) 
     -x UCX_NET_DEVICES=($device) 
     -x UCX_RC_MLX5_DM_COUNT=0 -x UCX_DC_MLX5_DM_COUNT=0 
+    -x RUST_BACKTRACE=1
     ./target/release/trace-execution --trace-file $file) | lines | where {|it| $it | str starts-with "Op/s"} | get 0 | parse "Op/s: {throughput}" | get throughput | into float
 }
 
