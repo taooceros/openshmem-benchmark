@@ -2,91 +2,91 @@
   {
     "file": "gmm_pe_0.event_bytes.csv",
     "num_pe": 1,
-    "record": 595260.1752717675
+    "record": 6528789.186279974
   },
   {
     "file": "diffusion_simulator_trace_ondemand.csv",
     "num_pe": 1,
-    "record": 817762.0381458794
+    "record": 3796720.323736689
   },
   {
     "file": "diffusion_simulator_trace_original.csv",
     "num_pe": 1,
-    "record": 22198.13269782572
+    "record": 23571.82110497611
   },
   {
     "file": "gmm_pe_0.event_bytes.csv",
     "num_pe": 2,
-    "record": 398445.9928544654
+    "record": 4523118.471929979
   },
   {
     "file": "diffusion_simulator_trace_ondemand.csv",
     "num_pe": 2,
-    "record": 788349.2266375137
+    "record": 4684413.0533309635
   },
   {
     "file": "diffusion_simulator_trace_original.csv",
     "num_pe": 2,
-    "record": 11746.893025316816
+    "record": 11788.121274790828
   },
   {
     "file": "gmm_pe_0.event_bytes.csv",
     "num_pe": 4,
-    "record": 293220.2951790267
+    "record": 2261666.449837658
   },
   {
     "file": "diffusion_simulator_trace_ondemand.csv",
     "num_pe": 4,
-    "record": 831280.6544606927
+    "record": 5061100.68319627
   },
   {
     "file": "diffusion_simulator_trace_original.csv",
     "num_pe": 4,
-    "record": 5823.1763539928215
+    "record": 5832.621277593722
   },
   {
     "file": "gmm_pe_0.event_bytes.csv",
     "num_pe": 8,
-    "record": 212851.74268867265
+    "record": 1229957.7150921917
   },
   {
     "file": "diffusion_simulator_trace_ondemand.csv",
     "num_pe": 8,
-    "record": 818988.808266
+    "record": 4805924.7171526635
   },
   {
     "file": "diffusion_simulator_trace_original.csv",
     "num_pe": 8,
-    "record": 2913.0301755811024
+    "record": 2916.597765727024
   },
   {
     "file": "gmm_pe_0.event_bytes.csv",
     "num_pe": 16,
-    "record": 156327.20650098787
+    "record": 626856.4549445697
   },
   {
     "file": "diffusion_simulator_trace_ondemand.csv",
     "num_pe": 16,
-    "record": 824382.1421720466
+    "record": 4798777.172712697
   },
   {
     "file": "diffusion_simulator_trace_original.csv",
     "num_pe": 16,
-    "record": 1457.6914602704828
+    "record": 1458.0826981153755
   },
   {
     "file": "gmm_pe_0.event_bytes.csv",
     "num_pe": 32,
-    "record": 83083.7320472429
+    "record": 294607.83684483054
   },
   {
     "file": "diffusion_simulator_trace_ondemand.csv",
     "num_pe": 32,
-    "record": 442867.6085151062
+    "record": 3212797.102607353
   },
   {
     "file": "diffusion_simulator_trace_original.csv",
     "num_pe": 32,
-    "record": 692.0087294495843
+    "record": 712.4610495893209
   }
 ]

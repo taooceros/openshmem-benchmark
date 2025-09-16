@@ -27,13 +27,17 @@ fn main() {
         .collect::<Vec<_>>();
     let scope = osm_scope::OsmScope::init();
 
+    let min_sec = 10.0;
     let mut times = Vec::new();
-    for trial in 1..10 {
+    loop {
         let time = execution::run(&operations, &scope);
-        println!("Trial {}: {}", trial, time);
+        println!("Trial {}: {}", times.len(), time);
         times.push(time);
+        if times.iter().sum::<f64>() / times.len() as f64 >= min_sec {
+            break;
+        }
     }
 
-    let throughput = operations.len() as f64 / times.iter().sum::<f64>() / times.len() as f64;
-    println!("Op/s average: {}", throughput);
+    let throughput = operations.len() as f64 / (times.iter().sum::<f64>() / times.len() as f64);
+    println!("Op/s: {}", throughput);
 }
