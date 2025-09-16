@@ -42,7 +42,7 @@ pub fn run(operations: Vec<Operation>) {
         let mut counter = 0;
         for operation in operations.iter() {
             match operation.op_type {
-                OperationType::Barrier => scope.barrier_all(),
+                // OperationType::Barrier => scope.barrier_all(),
                 _ => {}
             }
         }
