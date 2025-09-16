@@ -50,11 +50,11 @@ pub fn run(operations: Vec<Operation>) {
         for operation in operations.iter() {
             match operation.op_type {
                 OperationType::Put => {
-                    src[..operation.size].put_to_nbi(&mut dst, my_pe + num_pes as i32)
+                    src[..operation.size].put(&mut dst, my_pe + num_pes as i32)
                 }
                 OperationType::Get => src[..operation.size].get_from_nbi(&dst, my_pe + num_pes as i32),
                 OperationType::PutNonBlocking => {
-                    src[..operation.size].put_to_nbi(&mut dst, num_pes as i32)
+                    src[..operation.size].put(&mut dst, num_pes as i32)
                 }
                 OperationType::GetNonBlocking => {
                     src[..operation.size].get_from_nbi(&dst, my_pe + num_pes as i32)
