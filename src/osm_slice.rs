@@ -141,6 +141,9 @@ impl<T> IndexMut<std::ops::RangeToInclusive<usize>> for OsmSlice<T> {
     }
 }
 
+const P2P_SIZE: usize = 1024;
+
+
 impl<T> OsmSlice<T> {
     pub fn put_to(&self, other: &mut Self, target_pe: i32) {
         unsafe {
@@ -212,6 +215,7 @@ impl<T> OsmSlice<T> {
         }
     }
 
+
     pub fn all_gather(&self, other: &mut Self, scope: &OsmScope) -> usize {
         let other_len = other.len();
         let my_pe = scope.my_pe() as usize;
@@ -220,10 +224,10 @@ impl<T> OsmSlice<T> {
         let target = &mut other[(my_pe * other_len / pe_size)..((my_pe + 1) * other_len / pe_size)];
         for i in 0..pe_size as i32 {
             if i != my_pe as i32 {
-                for j in 0..self.len() / 8 {
-                    self[j..std::cmp::min(j + 8, self.len())].put_to(target, i);
+                for j in 0..self.len() / P2P_SIZE {
+                    self[j..std::cmp::min(j + P2P_SIZE, self.len())].put_to(target, i);
                 }
-                num_ops += self.len() / 8;
+                num_ops += self.len() / P2P_SIZE;
             }
         }
 
@@ -283,10 +287,10 @@ impl<T> OsmSlice<T> {
 
             for i in 0..pe_size as i32 {
                 if i != my_pe as i32 {
-                    for j in 0..self.len() / 8 {
-                        self[j..std::cmp::min(j + 8, self.len())].put_to(other, i);
+                    for j in 0..self.len() / P2P_SIZE {
+                        self[j..std::cmp::min(j + P2P_SIZE, self.len())].put_to(other, i);
                     }
-                    num_ops += self.len() / 8;
+                    num_ops += self.len() / P2P_SIZE;
                 }
             }
 
