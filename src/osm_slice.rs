@@ -227,7 +227,7 @@ impl<T> OsmSlice<T> {
                 for j in 0..self.len() / P2P_SIZE {
                     self[j..std::cmp::min(j + P2P_SIZE, self.len())].put_to(target, i);
                 }
-                num_ops += self.len() / P2P_SIZE;
+                num_ops += std::cmp::max(1, self.len() / P2P_SIZE) as usize ;
             }
         }
 
@@ -290,7 +290,7 @@ impl<T> OsmSlice<T> {
                     for j in 0..self.len() / P2P_SIZE {
                         self[j..std::cmp::min(j + P2P_SIZE, self.len())].put_to(other, i);
                     }
-                    num_ops += self.len() / P2P_SIZE;
+                    num_ops += std::cmp::max(1, self.len() / P2P_SIZE) as usize;
                 }
             }
 
