@@ -11,6 +11,8 @@ use crate::operations::Operation;
 struct Args {
     #[arg(short, long)]
     trace_file: String,
+    #[arg(short, long)]
+    small_message: bool,
 }
 
 pub mod execution;
@@ -28,16 +30,20 @@ fn main() {
     let scope = osm_scope::OsmScope::init();
 
     let min_sec = 10.0;
+    let mut num_ops = 0;
     let mut times = Vec::new();
     loop {
-        let time = execution::run(&operations, &scope);
+        let (each_num_ops, time) = execution::run(&operations, &scope);
         println!("Trial {}: {}", times.len(), time);
+        println!("current Op/s (in {:0.2}s): {:0.2}", time, each_num_ops as f64 / time);
+        println!("Num ops: {}", each_num_ops);
         times.push(time);
         if times.iter().sum::<f64>() >= min_sec {
             break;
         }
+        num_ops += each_num_ops;
     }
 
-    let throughput = operations.len() as f64 / (times.iter().sum::<f64>() / times.len() as f64);
+    let throughput = num_ops as f64 / (times.iter().sum::<f64>() / times.len() as f64);
     println!("Op/s: {}", throughput);
 }

@@ -16,6 +16,8 @@ pub enum OperationType {
     CompareAndSwap64,
     AllToAll,
     AllReduce,
+    AllGather,
+    None,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

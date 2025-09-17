@@ -1,11 +1,14 @@
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 
 use openshmem_sys::{
-    _SHMEM_SYNC_VALUE, SHMEM_BARRIER_SYNC_SIZE, shmem_alltoall64, shmem_broadcast64, shmem_getmem, shmem_getmem_nbi, shmem_int_atomic_fetch_add, shmem_int_cswap, shmem_int_sum_reduce, shmem_int_sum_to_all, shmem_long_atomic_fetch_add, shmem_long_cswap, shmem_putmem, shmem_putmem_nbi
+    _SHMEM_SYNC_VALUE, SHMEM_BARRIER_SYNC_SIZE, shmem_alltoall64, shmem_broadcast64, shmem_getmem,
+    shmem_getmem_nbi, shmem_int_atomic_fetch_add, shmem_int_cswap, shmem_int_sum_reduce,
+    shmem_int_sum_to_all, shmem_long_atomic_fetch_add, shmem_long_cswap, shmem_putmem,
+    shmem_putmem_nbi,
 };
 use ref_cast::RefCast;
 
-use crate::{osm_vec::ShVec, osm_wrapper::OsmWrapper};
+use crate::{osm_scope::OsmScope, osm_vec::ShVec, osm_wrapper::OsmWrapper};
 
 #[derive(Debug, RefCast)]
 #[repr(transparent)]
@@ -209,6 +212,26 @@ impl<T> OsmSlice<T> {
         }
     }
 
+    pub fn all_gather(&self, other: &mut Self, scope: &OsmScope) -> usize {
+        let other_len = other.len();
+        let my_pe = scope.my_pe() as usize;
+        let pe_size = scope.num_pes() as usize;
+        let mut num_ops = 0;
+        let target = &mut other[(my_pe * other_len / pe_size)..((my_pe + 1) * other_len / pe_size)];
+        for i in 0..pe_size as i32 {
+            if i != my_pe as i32 {
+                for j in 0..self.len() / 8 {
+                    self[j..std::cmp::min(j + 8, self.len())].put_to(target, i);
+                }
+                num_ops += self.len() / 8;
+            }
+        }
+
+        scope.barrier_all();
+
+        num_ops
+    }
+
     pub fn all_to_all(
         &self,
         other: &mut Self,
@@ -216,7 +239,8 @@ impl<T> OsmSlice<T> {
         log_pe_stride: i32,
         pe_size: i32,
         p_sync: &mut ShVec<i64>,
-    ) {
+        scope: &OsmScope,
+    ) -> usize {
         unsafe {
             shmem_alltoall64(
                 other.as_mut_ptr().cast(),
@@ -228,6 +252,8 @@ impl<T> OsmSlice<T> {
                 p_sync.as_mut_ptr(),
             );
         }
+
+        1
     }
 
     pub fn all_reduce(
@@ -238,19 +264,36 @@ impl<T> OsmSlice<T> {
         pe_size: i32,
         p_wrk: &mut ShVec<i32>,
         p_sync: &mut ShVec<i64>,
-    ) {
+        scope: &OsmScope,
+    ) -> usize {
+
+        let my_pe = scope.my_pe() as usize;
+        let mut num_ops = 0;
         unsafe {
-            shmem_int_sum_to_all(
-                other.as_mut_ptr().cast(),
-                self.as_ptr().cast(),
-                (self.len() * std::mem::size_of::<T>() / std::mem::size_of::<u64>()) as i32,
-                pe_start,
-                log_pe_stride,
-                pe_size,
-                p_wrk.as_mut_ptr(),
-                p_sync.as_mut_ptr(),
-            );
+            // shmem_int_sum_to_all(
+            //     other.as_mut_ptr().cast(),
+            //     self.as_ptr().cast(),
+            //     (self.len() * std::mem::size_of::<T>() / std::mem::size_of::<u64>()) as i32,
+            //     pe_start,
+            //     log_pe_stride,
+            //     pe_size,
+            //     p_wrk.as_mut_ptr(),
+            //     p_sync.as_mut_ptr(),
+            // );
+
+            for i in 0..pe_size as i32 {
+                if i != my_pe as i32 {
+                    for j in 0..self.len() / 8 {
+                        self[j..std::cmp::min(j + 8, self.len())].put_to(other, i);
+                    }
+                    num_ops += self.len() / 8;
+                }
+            }
+
+            scope.barrier_all();
         }
+
+        num_ops
     }
 
     pub fn fetch_add_i32(&mut self, value: i32, target_pe: i32) -> i32 {

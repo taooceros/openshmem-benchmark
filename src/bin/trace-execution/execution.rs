@@ -11,11 +11,11 @@ use quanta::Instant;
 
 use crate::operations::{Operation, OperationType};
 
-pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> f64 {
+pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
     let mut false_signal = OsmBox::new(AtomicBool::new(false), &scope);
     let mut running = OsmBox::new(AtomicBool::new(true), &scope);
 
-    let max_data_size = operations.iter().map(|e| e.size).max().unwrap();
+    let max_data_size = std::cmp::min(operations.iter().map(|e| e.size).max().unwrap(), 1024 * 1024 * 1024 * 64); // max 64GB
 
     let mut src = ShVec::<u8>::new(&scope);
     let mut dst = ShVec::<u8>::new(&scope);
@@ -42,6 +42,7 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> f64 {
     scope.barrier_all();
 
     let start = Instant::now();
+    let mut num_ops = 0;
 
     if scope.my_pe() >= num_pes {
         let mut counter = 0;
@@ -55,16 +56,20 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> f64 {
         for operation in operations.iter() {
             match operation.op_type {
                 OperationType::Put => {
-                    src[..operation.size].put_to_nbi(&mut dst, my_pe + num_pes as i32)
+                    src[..operation.size].put_to_nbi(&mut dst, my_pe + num_pes as i32);
+                    num_ops += 1;
                 }
                 OperationType::Get => {
-                    src[..operation.size].get_from_nbi(&dst, my_pe + num_pes as i32)
+                    src[..operation.size].get_from_nbi(&dst, my_pe + num_pes as i32);
+                    num_ops += 1;
                 }
                 OperationType::PutNonBlocking => {
-                    src[..operation.size].put_to_nbi(&mut dst, num_pes as i32)
+                    src[..operation.size].put_to_nbi(&mut dst, num_pes as i32);
+                    num_ops += 1;
                 }
                 OperationType::GetNonBlocking => {
-                    src[..operation.size].get_from_nbi(&dst, my_pe + num_pes as i32)
+                    src[..operation.size].get_from_nbi(&dst, my_pe + num_pes as i32);
+                    num_ops += 1;
                 }
                 OperationType::Barrier => {
                     // scope.barrier_all();
@@ -82,24 +87,35 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> f64 {
                 OperationType::CompareAndSwap64 => {
                     src.compare_and_swap_i64(1, 1, my_pe + num_pes as i32);
                 }
+                OperationType::AllGather => {
+                    num_ops += src.all_gather(
+                        &mut dst,
+                        scope,
+                    );
+                }
                 OperationType::AllToAll => {
-                    src.all_to_all(
+                    num_ops += src.all_to_all(
                         &mut dst,
                         my_pe + num_pes as i32,
                         0,
                         num_pes as i32,
                         &mut psync,
+                        scope,
                     );
                 }
                 OperationType::AllReduce => {
-                    src.all_reduce(
+                    num_ops += src.all_reduce(
                         &mut dst,
                         my_pe + num_pes as i32,
                         0,
                         num_pes as i32,
                         &mut pwrk,
                         &mut psync,
+                        scope,
                     );
+                }
+                OperationType::None => {
+                    
                 }
                 _ => panic!("Unsupported operation"),
             }
@@ -114,5 +130,5 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> f64 {
     false_signal.put_to_nbi(&mut running, 1);
     scope.barrier_all();
 
-    return end.duration_since(start).as_secs_f64();
+    return (num_ops, end.duration_since(start).as_secs_f64());
 }
