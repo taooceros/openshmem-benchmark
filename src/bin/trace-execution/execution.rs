@@ -42,6 +42,8 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
     scope.barrier_all();
 
     let start = Instant::now();
+    let mut last_print_time = Instant::now();
+    let mut last_print_num_ops = 0;
     let mut num_ops = 0;
 
     if scope.my_pe() >= num_pes {
@@ -81,6 +83,18 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
         }
     } else {
         for operation in operations.iter() {
+
+            // periodically print the number of operations
+            if num_ops - last_print_num_ops > 1000000 {
+                let duration = last_print_time.duration_since(start);
+                eprintln!("Num ops: {}", num_ops);
+                eprintln!("Time: {:?}", duration);
+                eprintln!("Op/s: {:0.2}", num_ops as f64 / duration.as_secs_f64());
+                last_print_time = Instant::now();
+                last_print_num_ops = num_ops;
+                eprintln!("Num ops: {}", num_ops);
+            }
+            
             match operation.op_type {
                 OperationType::Put => {
                     src[..operation.size].put_to_nbi(&mut dst, my_pe + num_pes as i32);
