@@ -47,6 +47,6 @@ fn main() {
     let throughput = num_ops as f64 / (times.iter().sum::<f64>() / times.len() as f64);
     println!("Op/s: {}", throughput);
     eprintln!("Num ops: {}", num_ops);
-    eprintln!("Times: {:?}", times);
+    eprintln!("Times: {:?}", times.iter().sum::<f64>() / times.len() as f64);
     eprintln!("Throughput: {}", throughput);
 }
