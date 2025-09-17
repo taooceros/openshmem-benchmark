@@ -38,13 +38,14 @@ fn main() {
         println!("current Op/s (in {:0.2}s): {:0.2}", time, each_num_ops as f64 / time);
         println!("Num ops: {}", each_num_ops);
         times.push(time);
+        num_ops += each_num_ops;
+        
         if times.iter().sum::<f64>() >= min_sec {
             break;
         }
-        num_ops += each_num_ops;
     }
 
-    let throughput = num_ops as f64 / (times.iter().sum::<f64>() / times.len() as f64);
+    let throughput = num_ops as f64 / (times.iter().sum::<f64>());
     println!("Op/s: {}", throughput);
     eprintln!("Num ops: {}", num_ops);
     eprintln!("Times: {:?}", times.iter().sum::<f64>() / times.len() as f64);
