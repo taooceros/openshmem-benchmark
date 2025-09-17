@@ -33,7 +33,7 @@ fn main() {
         let time = execution::run(&operations, &scope);
         println!("Trial {}: {}", times.len(), time);
         times.push(time);
-        if times.iter().sum::<f64>() / times.len() as f64 >= min_sec {
+        if times.iter().sum::<f64>() >= min_sec {
             break;
         }
     }
