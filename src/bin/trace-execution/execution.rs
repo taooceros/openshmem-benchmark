@@ -86,11 +86,11 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
 
             // periodically print the number of operations
             if num_ops - last_print_num_ops > 1000000 {
-                let duration = last_print_time.duration_since(start);
+                let duration = Instant::now().duration_since(last_print_time);
                 eprintln!("Num ops: {}", num_ops);
                 eprintln!("Time: {:?}", duration);
                 eprintln!("Op/s: {:0.2}", (num_ops - last_print_num_ops) as f64 / duration.as_secs_f64());
-                last_print_time = Instant::now();
+                last_print_time = Instant::now();;
                 last_print_num_ops = num_ops;
                 eprintln!("Num ops: {}", num_ops);
             }
