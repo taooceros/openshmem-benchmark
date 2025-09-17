@@ -1,9 +1,7 @@
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 
 use openshmem_sys::{
-    _SHMEM_SYNC_VALUE, SHMEM_BARRIER_SYNC_SIZE, shmem_alltoall64, shmem_broadcast64, shmem_getmem,
-    shmem_getmem_nbi, shmem_int_atomic_fetch_add, shmem_int_cswap, shmem_long_atomic_fetch_add,
-    shmem_long_cswap, shmem_putmem, shmem_putmem_nbi,
+    _SHMEM_SYNC_VALUE, SHMEM_BARRIER_SYNC_SIZE, shmem_alltoall64, shmem_broadcast64, shmem_getmem, shmem_getmem_nbi, shmem_int_atomic_fetch_add, shmem_int_cswap, shmem_int_sum_reduce, shmem_int_sum_to_all, shmem_long_atomic_fetch_add, shmem_long_cswap, shmem_putmem, shmem_putmem_nbi
 };
 use ref_cast::RefCast;
 
@@ -227,6 +225,29 @@ impl<T> OsmSlice<T> {
                 pe_start,
                 log_pe_stride,
                 pe_size,
+                p_sync.as_mut_ptr(),
+            );
+        }
+    }
+
+    pub fn all_reduce(
+        &self,
+        other: &mut Self,
+        pe_start: i32,
+        log_pe_stride: i32,
+        pe_size: i32,
+        p_wrk: &mut ShVec<i32>,
+        p_sync: &mut ShVec<i64>,
+    ) {
+        unsafe {
+            shmem_int_sum_to_all(
+                other.as_mut_ptr().cast(),
+                self.as_ptr().cast(),
+                (self.len() * std::mem::size_of::<T>() / std::mem::size_of::<u64>()) as i32,
+                pe_start,
+                log_pe_stride,
+                pe_size,
+                p_wrk.as_mut_ptr(),
                 p_sync.as_mut_ptr(),
             );
         }

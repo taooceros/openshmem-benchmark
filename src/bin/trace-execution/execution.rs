@@ -6,12 +6,12 @@ use openshmem_benchmark::{
     osm_scope::{self, OsmScope},
     osm_vec::ShVec,
 };
+use openshmem_sys::_SHMEM_SYNC_VALUE;
 use quanta::Instant;
 
 use crate::operations::{Operation, OperationType};
 
 pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> f64 {
-
     let mut false_signal = OsmBox::new(AtomicBool::new(false), &scope);
     let mut running = OsmBox::new(AtomicBool::new(true), &scope);
 
@@ -33,8 +33,14 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> f64 {
     let my_pe = scope.my_pe();
     let num_pes = scope.num_pes() / 2;
 
+    let mut psync = ShVec::with_capacity(num_pes as usize, &scope);
+    psync.resize_with(num_pes as usize, || _SHMEM_SYNC_VALUE as i64);
+
+    let mut pwrk = ShVec::with_capacity(num_pes as usize, &scope);
+    pwrk.resize_with(num_pes as usize, || 0);
+
     scope.barrier_all();
-    
+
     let start = Instant::now();
 
     if scope.my_pe() >= num_pes {
@@ -51,7 +57,9 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> f64 {
                 OperationType::Put => {
                     src[..operation.size].put_to_nbi(&mut dst, my_pe + num_pes as i32)
                 }
-                OperationType::Get => src[..operation.size].get_from_nbi(&dst, my_pe + num_pes as i32),
+                OperationType::Get => {
+                    src[..operation.size].get_from_nbi(&dst, my_pe + num_pes as i32)
+                }
                 OperationType::PutNonBlocking => {
                     src[..operation.size].put_to_nbi(&mut dst, num_pes as i32)
                 }
@@ -73,6 +81,25 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> f64 {
                 }
                 OperationType::CompareAndSwap64 => {
                     src.compare_and_swap_i64(1, 1, my_pe + num_pes as i32);
+                }
+                OperationType::AllToAll => {
+                    src.all_to_all(
+                        &mut dst,
+                        my_pe + num_pes as i32,
+                        0,
+                        num_pes as i32,
+                        &mut psync,
+                    );
+                }
+                OperationType::AllReduce => {
+                    src.all_reduce(
+                        &mut dst,
+                        my_pe + num_pes as i32,
+                        0,
+                        num_pes as i32,
+                        &mut pwrk,
+                        &mut psync,
+                    );
                 }
                 _ => panic!("Unsupported operation"),
             }
