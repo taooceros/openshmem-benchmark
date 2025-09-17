@@ -263,16 +263,12 @@ impl<T> OsmSlice<T> {
     pub fn all_reduce(
         &self,
         other: &mut Self,
-        pe_start: i32,
-        log_pe_stride: i32,
-        pe_size: i32,
-        p_wrk: &mut ShVec<i32>,
-        p_sync: &mut ShVec<i64>,
         scope: &OsmScope,
     ) -> usize {
 
         let my_pe = scope.my_pe() as usize;
         let mut num_ops = 0;
+        let pe_size = scope.num_pes() as usize;
         unsafe {
             // shmem_int_sum_to_all(
             //     other.as_mut_ptr().cast(),
@@ -297,6 +293,9 @@ impl<T> OsmSlice<T> {
             scope.barrier_all();
         }
 
+
+
+        eprintln!("Num ops: {}", num_ops);
         num_ops
     }
 

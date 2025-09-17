@@ -84,7 +84,7 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
     } else {
         for operation in operations.iter() {
 
-            eprintln!("Num ops: {}", num_ops);
+            eprintln!("Num ops: {} ({:?})", num_ops, operation.op_type);
             // periodically print the number of operations
             if num_ops - last_print_num_ops > 1000000 {
                 let duration = Instant::now().duration_since(last_print_time);
@@ -148,11 +148,6 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
                 OperationType::AllReduce => {
                     num_ops += src.all_reduce(
                         &mut dst,
-                        my_pe + num_pes as i32,
-                        0,
-                        num_pes as i32,
-                        &mut pwrk,
-                        &mut psync,
                         scope,
                     );
                 }
