@@ -15,7 +15,10 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
     let mut false_signal = OsmBox::new(AtomicBool::new(false), &scope);
     let mut running = OsmBox::new(AtomicBool::new(true), &scope);
 
-    let max_data_size = std::cmp::min(operations.iter().map(|e| e.size).max().unwrap(), 1024 * 1024 * 1024 * 64); // max 64GB
+    let max_data_size = std::cmp::min(
+        operations.iter().map(|e| e.size).max().unwrap(),
+        1024 * 1024 * 1024 * 64,
+    ); // max 64GB
 
     let mut src = ShVec::<u8>::new(&scope);
     let mut dst = ShVec::<u8>::new(&scope);
@@ -52,10 +55,7 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
             match operation.op_type {
                 // OperationType::Barrier => scope.barrier_all(),
                 OperationType::AllGather => {
-                    num_ops += src.all_gather(
-                        &mut dst,
-                        scope,
-                    );
+                    num_ops += src.all_gather(&mut dst, scope);
                 }
                 OperationType::AllToAll => {
                     num_ops += src.all_to_all(
@@ -68,34 +68,28 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
                     );
                 }
                 OperationType::AllReduce => {
-                    num_ops += src.all_reduce(
-                        &mut dst,
-                        my_pe + num_pes as i32,
-                        0,
-                        num_pes as i32,
-                        &mut pwrk,
-                        &mut psync,
-                        scope,
-                    );
+                    num_ops += src.all_reduce(&mut dst, scope);
                 }
                 _ => {}
             }
         }
     } else {
         for operation in operations.iter() {
-
             eprintln!("Num ops: {} ({:?})", num_ops, operation.op_type);
             // periodically print the number of operations
             if num_ops - last_print_num_ops > 1000000 {
                 let duration = Instant::now().duration_since(last_print_time);
                 eprintln!("Num ops: {}", num_ops);
                 eprintln!("Time: {:?}", duration);
-                eprintln!("Op/s: {:0.2}", (num_ops - last_print_num_ops) as f64 / duration.as_secs_f64());
-                last_print_time = Instant::now();;
+                eprintln!(
+                    "Op/s: {:0.2}",
+                    (num_ops - last_print_num_ops) as f64 / duration.as_secs_f64()
+                );
+                last_print_time = Instant::now();
                 last_print_num_ops = num_ops;
                 eprintln!("Num ops: {}", num_ops);
             }
-            
+
             match operation.op_type {
                 OperationType::Put => {
                     src[..operation.size].put_to_nbi(&mut dst, my_pe + num_pes as i32);
@@ -130,10 +124,7 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
                     src.compare_and_swap_i64(1, 1, my_pe + num_pes as i32);
                 }
                 OperationType::AllGather => {
-                    num_ops += src.all_gather(
-                        &mut dst,
-                        scope,
-                    );
+                    num_ops += src.all_gather(&mut dst, scope);
                 }
                 OperationType::AllToAll => {
                     num_ops += src.all_to_all(
@@ -146,14 +137,9 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
                     );
                 }
                 OperationType::AllReduce => {
-                    num_ops += src.all_reduce(
-                        &mut dst,
-                        scope,
-                    );
+                    num_ops += src.all_reduce(&mut dst, scope);
                 }
-                OperationType::None => {
-                    
-                }
+                OperationType::None => {}
                 _ => panic!("Unsupported operation"),
             }
         }
