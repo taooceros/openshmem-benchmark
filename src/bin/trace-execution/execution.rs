@@ -49,6 +49,33 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
         for operation in operations.iter() {
             match operation.op_type {
                 // OperationType::Barrier => scope.barrier_all(),
+                OperationType::AllGather => {
+                    num_ops += src.all_gather(
+                        &mut dst,
+                        scope,
+                    );
+                }
+                OperationType::AllToAll => {
+                    num_ops += src.all_to_all(
+                        &mut dst,
+                        my_pe + num_pes as i32,
+                        0,
+                        num_pes as i32,
+                        &mut psync,
+                        scope,
+                    );
+                }
+                OperationType::AllReduce => {
+                    num_ops += src.all_reduce(
+                        &mut dst,
+                        my_pe + num_pes as i32,
+                        0,
+                        num_pes as i32,
+                        &mut pwrk,
+                        &mut psync,
+                        scope,
+                    );
+                }
                 _ => {}
             }
         }
