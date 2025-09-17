@@ -89,7 +89,7 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
                 let duration = last_print_time.duration_since(start);
                 eprintln!("Num ops: {}", num_ops);
                 eprintln!("Time: {:?}", duration);
-                eprintln!("Op/s: {:0.2}", num_ops as f64 / duration.as_secs_f64());
+                eprintln!("Op/s: {:0.2}", (num_ops - last_print_num_ops) as f64 / duration.as_secs_f64());
                 last_print_time = Instant::now();
                 last_print_num_ops = num_ops;
                 eprintln!("Num ops: {}", num_ops);
