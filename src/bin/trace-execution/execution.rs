@@ -50,10 +50,11 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
     pwrk.resize_with(
         std::cmp::max(
             _SHMEM_REDUCE_MIN_WRKDATA_SIZE as usize,
-            (max_reduce_size / 2) + 1 as usize,
+            (max_reduce_size) + 1 as usize,
         ),
         || 0i32,
     );
+    eprintln!("Max reduce size: {}", max_reduce_size);
 
     scope.barrier_all();
 
