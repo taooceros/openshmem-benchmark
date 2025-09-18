@@ -1,10 +1,10 @@
 use std::ops::{Deref, DerefMut, Index, IndexMut};
 
 use openshmem_sys::{
-    _SHMEM_SYNC_VALUE, SHMEM_BARRIER_SYNC_SIZE, shmem_alltoall64, shmem_broadcast64, shmem_getmem,
-    shmem_getmem_nbi, shmem_int_atomic_fetch_add, shmem_int_cswap, shmem_int_sum_reduce,
-    shmem_int_sum_to_all, shmem_long_atomic_fetch_add, shmem_long_cswap, shmem_putmem,
-    shmem_putmem_nbi,
+    _SHMEM_SYNC_VALUE, SHMEM_BARRIER_SYNC_SIZE, shmem_alltoall64, shmem_broadcast64,
+    shmem_fcollect64, shmem_getmem, shmem_getmem_nbi, shmem_int_atomic_fetch_add, shmem_int_cswap,
+    shmem_int_sum_reduce, shmem_int_sum_to_all, shmem_long_atomic_fetch_add, shmem_long_cswap,
+    shmem_putmem, shmem_putmem_nbi,
 };
 use ref_cast::RefCast;
 
@@ -143,7 +143,6 @@ impl<T> IndexMut<std::ops::RangeToInclusive<usize>> for OsmSlice<T> {
 
 const P2P_SIZE: usize = 1024;
 
-
 impl<T> OsmSlice<T> {
     pub fn put_to(&self, other: &mut Self, target_pe: i32) {
         unsafe {
@@ -215,23 +214,35 @@ impl<T> OsmSlice<T> {
         }
     }
 
-
-    pub fn all_gather(&self, other: &mut Self, scope: &OsmScope) -> usize {
+    pub fn all_gather(&self, other: &mut Self, scope: &OsmScope, p_sync: &mut ShVec<i64>) -> usize {
         let other_len = other.len();
         let my_pe = scope.my_pe() as usize;
-        let pe_size = scope.num_pes() as usize;
+        let pe_size = scope.num_pes();
         let mut num_ops = 0;
-        let target = &mut other[(my_pe * other_len / pe_size)..((my_pe + 1) * other_len / pe_size)];
-        for i in 0..pe_size as i32 {
-            if i != my_pe as i32 {
-                for j in 0..self.len() / P2P_SIZE {
-                    self[j..std::cmp::min(j + P2P_SIZE, self.len())].put_to(target, i);
-                }
-                num_ops += std::cmp::max(1, self.len() / P2P_SIZE) as usize ;
-            }
+
+        unsafe {
+            shmem_fcollect64(
+                other.as_mut_ptr().cast(),
+                self.as_ptr().cast(),
+                self.len() * std::mem::size_of::<T>() / std::mem::size_of::<u64>(),
+                0,
+                0,
+                pe_size,
+                p_sync.as_mut_ptr(),
+            );
         }
 
-        scope.barrier_all();
+        // let target = &mut other[(my_pe * other_len / pe_size)..((my_pe + 1) * other_len / pe_size)];
+        // for i in 0..pe_size as i32 {
+        //     if i != my_pe as i32 {
+        //         for j in 0..self.len() / P2P_SIZE {
+        //             self[j..std::cmp::min(j + P2P_SIZE, self.len())].put_to(target, i);
+        //         }
+        //         num_ops += std::cmp::max(1, self.len() / P2P_SIZE) as usize ;
+        //     }
+        // }
+
+        // scope.barrier_all();
 
         num_ops
     }
@@ -264,36 +275,37 @@ impl<T> OsmSlice<T> {
         &self,
         other: &mut Self,
         scope: &OsmScope,
+        p_wrk: &mut ShVec<i32>,
+        p_sync: &mut ShVec<i64>,
     ) -> usize {
-
         let my_pe = scope.my_pe() as usize;
         let mut num_ops = 0;
-        let pe_size = scope.num_pes() as usize;
+        let pe_size = scope.num_pes();
+        let pe_start = 0;
+        let log_pe_stride = 0;
         unsafe {
-            // shmem_int_sum_to_all(
-            //     other.as_mut_ptr().cast(),
-            //     self.as_ptr().cast(),
-            //     (self.len() * std::mem::size_of::<T>() / std::mem::size_of::<u64>()) as i32,
-            //     pe_start,
-            //     log_pe_stride,
-            //     pe_size,
-            //     p_wrk.as_mut_ptr(),
-            //     p_sync.as_mut_ptr(),
-            // );
+            shmem_int_sum_to_all(
+                other.as_mut_ptr().cast(),
+                self.as_ptr().cast(),
+                (self.len() * std::mem::size_of::<T>() / std::mem::size_of::<u64>()) as i32,
+                pe_start,
+                log_pe_stride,
+                pe_size,
+                p_wrk.as_mut_ptr(),
+                p_sync.as_mut_ptr(),
+            );
 
-            for i in 0..pe_size as i32 {
-                if i != my_pe as i32 {
-                    for j in 0..self.len() / P2P_SIZE {
-                        self[j..std::cmp::min(j + P2P_SIZE, self.len())].put_to(other, i);
-                    }
-                    num_ops += std::cmp::max(1, self.len() / P2P_SIZE) as usize;
-                }
-            }
+            // for i in 0..pe_size as i32 {
+            //     if i != my_pe as i32 {
+            //         for j in 0..self.len() / P2P_SIZE {
+            //             self[j..std::cmp::min(j + P2P_SIZE, self.len())].put_to(other, i);
+            //         }
+            //         num_ops += std::cmp::max(1, self.len() / P2P_SIZE) as usize;
+            //     }
+            // }
 
-            scope.barrier_all();
+            // scope.barrier_all();
         }
-
-
 
         eprintln!("Num ops: {}", num_ops);
         num_ops

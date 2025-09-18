@@ -55,7 +55,7 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
             match operation.op_type {
                 // OperationType::Barrier => scope.barrier_all(),
                 OperationType::AllGather => {
-                    num_ops += src.all_gather(&mut dst, scope);
+                    num_ops += src.all_gather(&mut dst, scope, &mut psync);
                 }
                 OperationType::AllToAll => {
                     num_ops += src.all_to_all(
@@ -68,14 +68,13 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
                     );
                 }
                 OperationType::AllReduce => {
-                    num_ops += src.all_reduce(&mut dst, scope);
+                    num_ops += src.all_reduce(&mut dst, scope, &mut pwrk, &mut psync);
                 }
                 _ => {}
             }
         }
     } else {
         for operation in operations.iter() {
-            eprintln!("Num ops: {} ({:?})", num_ops, operation.op_type);
             // periodically print the number of operations
             if num_ops - last_print_num_ops > 1000000 {
                 let duration = Instant::now().duration_since(last_print_time);
@@ -124,7 +123,7 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
                     src.compare_and_swap_i64(1, 1, my_pe + num_pes as i32);
                 }
                 OperationType::AllGather => {
-                    num_ops += src.all_gather(&mut dst, scope);
+                    num_ops += src.all_gather(&mut dst, scope, &mut psync);
                 }
                 OperationType::AllToAll => {
                     num_ops += src.all_to_all(
@@ -137,7 +136,7 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
                     );
                 }
                 OperationType::AllReduce => {
-                    num_ops += src.all_reduce(&mut dst, scope);
+                    num_ops += src.all_reduce(&mut dst, scope, &mut pwrk, &mut psync);
                 }
                 OperationType::None => {}
                 _ => panic!("Unsupported operation"),
