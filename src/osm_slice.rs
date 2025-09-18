@@ -242,7 +242,7 @@ impl<T> OsmSlice<T> {
         //     }
         // }
 
-        // scope.barrier_all();
+        scope.barrier_all();
 
         num_ops
     }
@@ -267,6 +267,8 @@ impl<T> OsmSlice<T> {
                 p_sync.as_mut_ptr(),
             );
         }
+
+        scope.barrier_all();
 
         1
     }
@@ -304,7 +306,7 @@ impl<T> OsmSlice<T> {
             //     }
             // }
 
-            // scope.barrier_all();
+            scope.barrier_all();
         }
 
         eprintln!("Num ops: {}", num_ops);
