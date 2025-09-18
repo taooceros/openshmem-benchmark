@@ -66,10 +66,11 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
     if scope.my_pe() >= num_pes {
         let mut counter = 0;
         for operation in operations.iter() {
+            let cnt = std::cmp::min(operation.size, max_data_size);
             match operation.op_type {
                 // OperationType::Barrier => scope.barrier_all(),
                 OperationType::AllGather => {
-                    num_ops += src.all_gather(&mut dst, scope, &mut psync);
+                    num_ops += src[..cnt].all_gather(&mut dst, scope, &mut psync);
                 }
                 OperationType::AllToAll => {
                     num_ops += src.all_to_all(
@@ -82,7 +83,7 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
                     );
                 }
                 OperationType::AllReduce => {
-                    num_ops += src.all_reduce(&mut dst, scope, &mut pwrk, &mut psync);
+                    num_ops += src[..cnt].all_reduce(&mut dst, scope, &mut pwrk, &mut psync);
                 }
                 _ => {}
             }
