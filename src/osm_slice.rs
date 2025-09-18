@@ -218,7 +218,7 @@ impl<T> OsmSlice<T> {
         let other_len = other.len();
         let my_pe = scope.my_pe() as usize;
         let pe_size = scope.num_pes();
-        let mut num_ops = 0;
+        let mut num_ops = 1;
 
         unsafe {
             shmem_fcollect64(
@@ -279,7 +279,7 @@ impl<T> OsmSlice<T> {
         p_sync: &mut ShVec<i64>,
     ) -> usize {
         let my_pe = scope.my_pe() as usize;
-        let mut num_ops = 0;
+        let mut num_ops = 1;
         let pe_size = scope.num_pes();
         let pe_start = 0;
         let log_pe_stride = 0;
