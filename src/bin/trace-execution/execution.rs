@@ -6,7 +6,7 @@ use openshmem_benchmark::{
     osm_scope::{self, OsmScope},
     osm_vec::ShVec,
 };
-use openshmem_sys::_SHMEM_SYNC_VALUE;
+use openshmem_sys::{_SHMEM_REDUCE_MIN_WRKDATA_SIZE, _SHMEM_REDUCE_SYNC_SIZE, _SHMEM_SYNC_VALUE};
 use quanta::Instant;
 
 use crate::operations::{Operation, OperationType};
@@ -37,10 +37,16 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
     eprintln!("My PE: {}", scope.my_pe());
 
     let mut psync = ShVec::with_capacity(num_pes as usize, &scope);
-    psync.resize_with(num_pes as usize, || _SHMEM_SYNC_VALUE as i64);
+    psync.resize_with(
+        std::cmp::max(_SHMEM_REDUCE_SYNC_SIZE as usize, num_pes as usize),
+        || _SHMEM_SYNC_VALUE as i64,
+    );
 
     let mut pwrk = ShVec::with_capacity(num_pes as usize, &scope);
-    pwrk.resize_with(num_pes as usize, || 0);
+    pwrk.resize_with(
+        std::cmp::max(_SHMEM_REDUCE_MIN_WRKDATA_SIZE as usize, num_pes as usize),
+        || _SHMEM_REDUCE_MIN_WRKDATA_SIZE,
+    );
 
     scope.barrier_all();
 
