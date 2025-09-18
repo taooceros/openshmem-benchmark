@@ -45,7 +45,7 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
     let mut pwrk = ShVec::with_capacity(num_pes as usize, &scope);
     pwrk.resize_with(
         std::cmp::max(_SHMEM_REDUCE_MIN_WRKDATA_SIZE as usize, num_pes as usize),
-        || _SHMEM_REDUCE_MIN_WRKDATA_SIZE,
+        || 0i32,
     );
 
     scope.barrier_all();
