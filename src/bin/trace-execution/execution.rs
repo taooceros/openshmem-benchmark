@@ -20,6 +20,13 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
         1024 * 1024 * 1024 * 16,
     ); // max 16GB
 
+    let max_reduce_type = operations
+        .iter()
+        .filter(|e| e.op_type == OperationType::AllReduce)
+        .map(|e| e.size)
+        .max()
+        .unwrap();
+
     let mut src = ShVec::<u8>::new(&scope);
     let mut dst = ShVec::<u8>::new(&scope);
 
@@ -143,7 +150,7 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
                     );
                 }
                 OperationType::AllReduce => {
-                    num_ops += src.all_reduce(&mut dst, scope, &mut pwrk, &mut psync);
+                    num_ops += src[..cnt].all_reduce(&mut dst, scope, &mut pwrk, &mut psync);
                 }
                 OperationType::None => {}
                 _ => panic!("Unsupported operation"),
