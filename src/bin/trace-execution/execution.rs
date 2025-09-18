@@ -20,7 +20,7 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
         1024 * 1024 * 1024 * 16,
     ); // max 16GB
 
-    let max_reduce_type = operations
+    let max_reduce_size = operations
         .iter()
         .filter(|e| e.op_type == OperationType::AllReduce)
         .map(|e| e.size)
@@ -51,7 +51,10 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
 
     let mut pwrk = ShVec::with_capacity(num_pes as usize, &scope);
     pwrk.resize_with(
-        std::cmp::max(_SHMEM_REDUCE_MIN_WRKDATA_SIZE as usize, num_pes as usize),
+        std::cmp::max(
+            _SHMEM_REDUCE_MIN_WRKDATA_SIZE as usize,
+            (max_reduce_size / 2) + 1 as usize,
+        ),
         || 0i32,
     );
 
