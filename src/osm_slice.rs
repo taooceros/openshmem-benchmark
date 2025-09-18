@@ -309,7 +309,6 @@ impl<T> OsmSlice<T> {
             scope.barrier_all();
         }
 
-        eprintln!("Num ops: {}", num_ops);
         num_ops
     }
 
