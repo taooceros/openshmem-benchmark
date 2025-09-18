@@ -17,14 +17,17 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
 
     let max_data_size = std::cmp::min(
         operations.iter().map(|e| e.size).max().unwrap(),
-        1024 * 1024 * 1024 * 64,
-    ); // max 64GB
+        1024 * 1024 * 1024 * 16,
+    ); // max 16GB
 
     let mut src = ShVec::<u8>::new(&scope);
     let mut dst = ShVec::<u8>::new(&scope);
 
+    let my_pe = scope.my_pe();
+    let num_pes = scope.num_pes() / 2;
+
     src.resize_with(max_data_size, || 0);
-    dst.resize_with(max_data_size, || 0);
+    dst.resize_with(max_data_size * (num_pes as usize) * 2, || 0);
 
     scope.barrier_all();
 
@@ -32,9 +35,6 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
     eprintln!("Max data size: {}", max_data_size);
     eprintln!("Number of PEs: {}", scope.num_pes());
     eprintln!("My PE: {}", scope.my_pe());
-
-    let my_pe = scope.my_pe();
-    let num_pes = scope.num_pes() / 2;
 
     let mut psync = ShVec::with_capacity(num_pes as usize, &scope);
     psync.resize_with(num_pes as usize, || _SHMEM_SYNC_VALUE as i64);
@@ -75,8 +75,9 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
         }
     } else {
         for operation in operations.iter() {
+            let cnt = std::cmp::min(operation.size, max_data_size);
             // periodically print the number of operations
-            if num_ops - last_print_num_ops > 1000000 {
+            if num_ops - last_print_num_ops > 2 {
                 let duration = Instant::now().duration_since(last_print_time);
                 eprintln!("Num ops: {}", num_ops);
                 eprintln!("Time: {:?}", duration);
@@ -91,19 +92,19 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
 
             match operation.op_type {
                 OperationType::Put => {
-                    src[..operation.size].put_to_nbi(&mut dst, my_pe + num_pes as i32);
+                    src[..cnt].put_to_nbi(&mut dst, my_pe + num_pes as i32);
                     num_ops += 1;
                 }
                 OperationType::Get => {
-                    src[..operation.size].get_from_nbi(&dst, my_pe + num_pes as i32);
+                    src[..cnt].get_from_nbi(&dst, my_pe + num_pes as i32);
                     num_ops += 1;
                 }
                 OperationType::PutNonBlocking => {
-                    src[..operation.size].put_to_nbi(&mut dst, num_pes as i32);
+                    src[..cnt].put_to_nbi(&mut dst, num_pes as i32);
                     num_ops += 1;
                 }
                 OperationType::GetNonBlocking => {
-                    src[..operation.size].get_from_nbi(&dst, my_pe + num_pes as i32);
+                    src[..cnt].get_from_nbi(&dst, my_pe + num_pes as i32);
                     num_ops += 1;
                 }
                 OperationType::Barrier => {
@@ -123,7 +124,7 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
                     src.compare_and_swap_i64(1, 1, my_pe + num_pes as i32);
                 }
                 OperationType::AllGather => {
-                    num_ops += src.all_gather(&mut dst, scope, &mut psync);
+                    num_ops += src[..cnt].all_gather(&mut dst, scope, &mut psync);
                 }
                 OperationType::AllToAll => {
                     num_ops += src.all_to_all(
