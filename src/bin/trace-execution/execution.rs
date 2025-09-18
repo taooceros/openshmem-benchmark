@@ -15,10 +15,7 @@ pub fn run(operations: &Vec<Operation>, scope: &OsmScope) -> (usize, f64) {
     let mut false_signal = OsmBox::new(AtomicBool::new(false), &scope);
     let mut running = OsmBox::new(AtomicBool::new(true), &scope);
 
-    let max_data_size = std::cmp::min(
-        operations.iter().map(|e| e.size).max().unwrap(),
-        1024 * 1024 * 1024 * 16,
-    ); // max 16GB
+    let max_data_size = operations.iter().map(|e| e.size).max().unwrap();
 
     let max_reduce_size = operations
         .iter()
