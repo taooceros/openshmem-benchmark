@@ -1,0 +1,410 @@
+[
+  {
+    "message_size": "1",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "put-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      7079298.22
+    ],
+    "total_message_rate": 7079298.22,
+    "median_message_rate": 7079298.22
+  },
+  {
+    "message_size": "1",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "get-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      6708346.11
+    ],
+    "total_message_rate": 6708346.11,
+    "median_message_rate": 6708346.11
+  },
+  {
+    "message_size": "2",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "put-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      7212204.68
+    ],
+    "total_message_rate": 7212204.68,
+    "median_message_rate": 7212204.68
+  },
+  {
+    "message_size": "2",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "get-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      6763559.68
+    ],
+    "total_message_rate": 6763559.68,
+    "median_message_rate": 6763559.68
+  },
+  {
+    "message_size": "4",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "put-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      7260552.44
+    ],
+    "total_message_rate": 7260552.44,
+    "median_message_rate": 7260552.44
+  },
+  {
+    "message_size": "4",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "get-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      6736796.9
+    ],
+    "total_message_rate": 6736796.9,
+    "median_message_rate": 6736796.9
+  },
+  {
+    "message_size": "8",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "put-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      7119660.64
+    ],
+    "total_message_rate": 7119660.64,
+    "median_message_rate": 7119660.64
+  },
+  {
+    "message_size": "8",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "get-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      6747606.85
+    ],
+    "total_message_rate": 6747606.85,
+    "median_message_rate": 6747606.85
+  },
+  {
+    "message_size": "16",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "put-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      7268721.63
+    ],
+    "total_message_rate": 7268721.63,
+    "median_message_rate": 7268721.63
+  },
+  {
+    "message_size": "16",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "get-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      6681920.85
+    ],
+    "total_message_rate": 6681920.85,
+    "median_message_rate": 6681920.85
+  },
+  {
+    "message_size": "32",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "put-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      6143284.28
+    ],
+    "total_message_rate": 6143284.28,
+    "median_message_rate": 6143284.28
+  },
+  {
+    "message_size": "32",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "get-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      6529263.59
+    ],
+    "total_message_rate": 6529263.59,
+    "median_message_rate": 6529263.59
+  },
+  {
+    "message_size": "64",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "put-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      5802786.04
+    ],
+    "total_message_rate": 5802786.04,
+    "median_message_rate": 5802786.04
+  },
+  {
+    "message_size": "64",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "get-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      6548025.23
+    ],
+    "total_message_rate": 6548025.23,
+    "median_message_rate": 6548025.23
+  },
+  {
+    "message_size": "128",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "put-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      5891718.57
+    ],
+    "total_message_rate": 5891718.57,
+    "median_message_rate": 5891718.57
+  },
+  {
+    "message_size": "128",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "get-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      6571557.66
+    ],
+    "total_message_rate": 6571557.66,
+    "median_message_rate": 6571557.66
+  },
+  {
+    "message_size": "256",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "put-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      6157656.87
+    ],
+    "total_message_rate": 6157656.87,
+    "median_message_rate": 6157656.87
+  },
+  {
+    "message_size": "256",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "get-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      6355379.83
+    ],
+    "total_message_rate": 6355379.83,
+    "median_message_rate": 6355379.83
+  },
+  {
+    "message_size": "512",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "put-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      6093115.66
+    ],
+    "total_message_rate": 6093115.66,
+    "median_message_rate": 6093115.66
+  },
+  {
+    "message_size": "512",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "get-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      6075080.11
+    ],
+    "total_message_rate": 6075080.11,
+    "median_message_rate": 6075080.11
+  },
+  {
+    "message_size": "1024",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "put-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      6106476.56
+    ],
+    "total_message_rate": 6106476.56,
+    "median_message_rate": 6106476.56
+  },
+  {
+    "message_size": "1024",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "get-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      5684186.24
+    ],
+    "total_message_rate": 5684186.24,
+    "median_message_rate": 5684186.24
+  },
+  {
+    "message_size": "2048",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "put-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      4341064.11
+    ],
+    "total_message_rate": 4341064.11,
+    "median_message_rate": 4341064.11
+  },
+  {
+    "message_size": "2048",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "get-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      4203997.81
+    ],
+    "total_message_rate": 4203997.81,
+    "median_message_rate": 4203997.81
+  },
+  {
+    "message_size": "4096",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "put-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      2447641.06
+    ],
+    "total_message_rate": 2447641.06,
+    "median_message_rate": 2447641.06
+  },
+  {
+    "message_size": "4096",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "get-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      2275768.07
+    ],
+    "total_message_rate": 2275768.07,
+    "median_message_rate": 2275768.07
+  },
+  {
+    "message_size": "8192",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "put-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      1574011.49
+    ],
+    "total_message_rate": 1574011.49,
+    "median_message_rate": 1574011.49
+  },
+  {
+    "message_size": "8192",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "get-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      1184132.47
+    ],
+    "total_message_rate": 1184132.47,
+    "median_message_rate": 1184132.47
+  },
+  {
+    "message_size": "16384",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "put-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      1400080.54
+    ],
+    "total_message_rate": 1400080.54,
+    "median_message_rate": 1400080.54
+  },
+  {
+    "message_size": "16384",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "get-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      604850.41
+    ],
+    "total_message_rate": 604850.41,
+    "median_message_rate": 604850.41
+  },
+  {
+    "message_size": "32768",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "put-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      703010.17
+    ],
+    "total_message_rate": 703010.17,
+    "median_message_rate": 703010.17
+  },
+  {
+    "message_size": "32768",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "get-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      302956.36
+    ],
+    "total_message_rate": 302956.36,
+    "median_message_rate": 302956.36
+  },
+  {
+    "message_size": "65536",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "put-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      352414.61
+    ],
+    "total_message_rate": 352414.61,
+    "median_message_rate": 352414.61
+  },
+  {
+    "message_size": "65536",
+    "epoch_size": "1024",
+    "group": "range",
+    "op": "get-non-blocking",
+    "qps_per_instance": "1",
+    "per_instance_rate": [
+      152043.69
+    ],
+    "total_message_rate": 152043.69,
+    "median_message_rate": 152043.69
+  }
+]

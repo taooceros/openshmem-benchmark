@@ -3,6 +3,7 @@ pub mod operations;
 use std::{fs::File, io::BufReader};
 
 use clap::Parser;
+use openshmem_benchmark::osm_scope;
 
 use crate::operations::Operation;
 
@@ -10,6 +11,8 @@ use crate::operations::Operation;
 struct Args {
     #[arg(short, long)]
     trace_file: String,
+    #[arg(short, long)]
+    small_message: bool,
 }
 
 pub mod execution;
@@ -24,6 +27,27 @@ fn main() {
         .deserialize::<Operation>()
         .map(|e| e.unwrap())
         .collect::<Vec<_>>();
+    let scope = osm_scope::OsmScope::init();
 
-    execution::run(operations);
+    let min_sec = 10.0;
+    let mut num_ops = 0;
+    let mut times = Vec::new();
+    loop {
+        let (each_num_ops, time) = execution::run(&operations, &scope);
+        println!("Trial {}: {}", times.len(), time);
+        println!("current Op/s (in {:0.2}s): {:0.2}", time, each_num_ops as f64 / time);
+        println!("Num ops: {}", each_num_ops);
+        times.push(time);
+        num_ops += each_num_ops;
+        
+        if times.iter().sum::<f64>() >= min_sec {
+            break;
+        }
+    }
+
+    let throughput = num_ops as f64 / (times.iter().sum::<f64>());
+    println!("Op/s: {}", throughput);
+    eprintln!("Num ops: {}", num_ops);
+    eprintln!("Times: {:?}", times.iter().sum::<f64>() / times.len() as f64);
+    eprintln!("Throughput: {}", throughput);
 }

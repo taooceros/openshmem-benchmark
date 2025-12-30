@@ -1,17 +1,16 @@
-use std::{
-    mem::transmute,
-    ops::{Deref, DerefMut, Index, IndexMut},
-};
+use std::ops::{Deref, DerefMut, Index, IndexMut};
 
 use openshmem_sys::{
-    _SHMEM_SYNC_VALUE, SHMEM_BARRIER_SYNC_SIZE, shmem_alltoall64, shmem_barrier, shmem_broadcast64,
-    shmem_broadcastmem, shmem_getmem, shmem_getmem_nbi, shmem_int_atomic_fetch_add,
-    shmem_int_broadcast, shmem_int_cswap, shmem_int_fadd, shmem_long_atomic_fetch_add,
-    shmem_long_cswap, shmem_putmem, shmem_putmem_nbi, shmem_team_t,
+    _SHMEM_SYNC_VALUE, SHMEM_BARRIER_SYNC_SIZE, shmem_alltoall64, shmem_broadcast64,
+    shmem_fcollect64, shmem_getmem, shmem_getmem_nbi, shmem_int_atomic_fetch_add, shmem_int_cswap,
+    shmem_int_sum_reduce, shmem_int_sum_to_all, shmem_long_atomic_fetch_add, shmem_long_cswap,
+    shmem_putmem, shmem_putmem_nbi,
 };
+use ref_cast::RefCast;
 
-use crate::{osm_vec::ShVec, osm_wrapper::OsmWrapper};
+use crate::{osm_scope::OsmScope, osm_vec::ShVec, osm_wrapper::OsmWrapper};
 
+#[derive(Debug, RefCast)]
 #[repr(transparent)]
 pub struct OsmSlice<T> {
     data: [T],
@@ -21,14 +20,14 @@ impl<T> OsmSlice<T> {
     pub unsafe fn from_raw_parts<'a>(ptr: *mut T, len: usize) -> &'a Self {
         unsafe {
             let data = std::slice::from_raw_parts(ptr, len);
-            transmute(data)
+            OsmSlice::ref_cast(data)
         }
     }
 
     pub unsafe fn from_raw_parts_mut<'a>(ptr: *mut T, len: usize) -> &'a mut Self {
         unsafe {
             let data = std::slice::from_raw_parts_mut(ptr, len);
-            transmute(data)
+            OsmSlice::ref_cast_mut(data)
         }
     }
 }
@@ -47,19 +46,102 @@ impl<T> DerefMut for OsmSlice<T> {
     }
 }
 
+// Index with usize returns OsmWrapper for single element access
 impl<T> Index<usize> for OsmSlice<T> {
     type Output = OsmWrapper<T>;
 
     fn index(&self, index: usize) -> &Self::Output {
-        unsafe { transmute(&self.data[index]) }
+        OsmWrapper::ref_cast(&self.data[index])
     }
 }
 
+// IndexMut with usize returns mutable OsmWrapper for single element access
 impl<T> IndexMut<usize> for OsmSlice<T> {
     fn index_mut(&mut self, index: usize) -> &mut Self::Output {
-        unsafe { transmute(&mut self.data[index]) }
+        unsafe {
+            let element_ptr = self.data.as_mut_ptr().add(index);
+            &mut *(element_ptr as *mut OsmWrapper<T>)
+        }
     }
 }
+
+// Index with Range types returns OsmSlice for slice access
+impl<T> Index<std::ops::Range<usize>> for OsmSlice<T> {
+    type Output = OsmSlice<T>;
+
+    fn index(&self, index: std::ops::Range<usize>) -> &Self::Output {
+        OsmSlice::ref_cast(&self.data[index])
+    }
+}
+
+// IndexMut with Range types returns mutable OsmSlice for slice access
+impl<T> IndexMut<std::ops::Range<usize>> for OsmSlice<T> {
+    fn index_mut(&mut self, index: std::ops::Range<usize>) -> &mut Self::Output {
+        OsmSlice::ref_cast_mut(&mut self.data[index])
+    }
+}
+
+// Index with RangeFrom types
+impl<T> Index<std::ops::RangeFrom<usize>> for OsmSlice<T> {
+    type Output = OsmSlice<T>;
+
+    fn index(&self, index: std::ops::RangeFrom<usize>) -> &Self::Output {
+        OsmSlice::ref_cast(&self.data[index])
+    }
+}
+
+impl<T> IndexMut<std::ops::RangeFrom<usize>> for OsmSlice<T> {
+    fn index_mut(&mut self, index: std::ops::RangeFrom<usize>) -> &mut Self::Output {
+        OsmSlice::ref_cast_mut(&mut self.data[index])
+    }
+}
+
+// Index with RangeTo types
+impl<T> Index<std::ops::RangeTo<usize>> for OsmSlice<T> {
+    type Output = OsmSlice<T>;
+
+    fn index(&self, index: std::ops::RangeTo<usize>) -> &Self::Output {
+        OsmSlice::ref_cast(&self.data[index])
+    }
+}
+
+impl<T> IndexMut<std::ops::RangeTo<usize>> for OsmSlice<T> {
+    fn index_mut(&mut self, index: std::ops::RangeTo<usize>) -> &mut Self::Output {
+        OsmSlice::ref_cast_mut(&mut self.data[index])
+    }
+}
+
+// Index with RangeInclusive types
+impl<T> Index<std::ops::RangeInclusive<usize>> for OsmSlice<T> {
+    type Output = OsmSlice<T>;
+
+    fn index(&self, index: std::ops::RangeInclusive<usize>) -> &Self::Output {
+        OsmSlice::ref_cast(&self.data[index])
+    }
+}
+
+impl<T> IndexMut<std::ops::RangeInclusive<usize>> for OsmSlice<T> {
+    fn index_mut(&mut self, index: std::ops::RangeInclusive<usize>) -> &mut Self::Output {
+        OsmSlice::ref_cast_mut(&mut self.data[index])
+    }
+}
+
+// Index with RangeToInclusive types
+impl<T> Index<std::ops::RangeToInclusive<usize>> for OsmSlice<T> {
+    type Output = OsmSlice<T>;
+
+    fn index(&self, index: std::ops::RangeToInclusive<usize>) -> &Self::Output {
+        OsmSlice::ref_cast(&self.data[index])
+    }
+}
+
+impl<T> IndexMut<std::ops::RangeToInclusive<usize>> for OsmSlice<T> {
+    fn index_mut(&mut self, index: std::ops::RangeToInclusive<usize>) -> &mut Self::Output {
+        OsmSlice::ref_cast_mut(&mut self.data[index])
+    }
+}
+
+const P2P_SIZE: usize = 1024;
 
 impl<T> OsmSlice<T> {
     pub fn put_to(&self, other: &mut Self, target_pe: i32) {
@@ -132,6 +214,39 @@ impl<T> OsmSlice<T> {
         }
     }
 
+    pub fn all_gather(&self, other: &mut Self, scope: &OsmScope, p_sync: &mut ShVec<i64>) -> usize {
+        let other_len = other.len();
+        let my_pe = scope.my_pe() as usize;
+        let pe_size = scope.num_pes();
+        let mut num_ops = 1;
+
+        unsafe {
+            shmem_fcollect64(
+                other.as_mut_ptr().cast(),
+                self.as_ptr().cast(),
+                self.len() * std::mem::size_of::<T>() / std::mem::size_of::<u64>(),
+                0,
+                0,
+                pe_size,
+                p_sync.as_mut_ptr(),
+            );
+        }
+
+        // let target = &mut other[(my_pe * other_len / pe_size)..((my_pe + 1) * other_len / pe_size)];
+        // for i in 0..pe_size as i32 {
+        //     if i != my_pe as i32 {
+        //         for j in 0..self.len() / P2P_SIZE {
+        //             self[j..std::cmp::min(j + P2P_SIZE, self.len())].put_to(target, i);
+        //         }
+        //         num_ops += std::cmp::max(1, self.len() / P2P_SIZE) as usize ;
+        //     }
+        // }
+
+        scope.barrier_all();
+
+        num_ops
+    }
+
     pub fn all_to_all(
         &self,
         other: &mut Self,
@@ -139,7 +254,8 @@ impl<T> OsmSlice<T> {
         log_pe_stride: i32,
         pe_size: i32,
         p_sync: &mut ShVec<i64>,
-    ) {
+        scope: &OsmScope,
+    ) -> usize {
         unsafe {
             shmem_alltoall64(
                 other.as_mut_ptr().cast(),
@@ -151,6 +267,49 @@ impl<T> OsmSlice<T> {
                 p_sync.as_mut_ptr(),
             );
         }
+
+        scope.barrier_all();
+
+        1
+    }
+
+    pub fn all_reduce(
+        &self,
+        other: &mut Self,
+        scope: &OsmScope,
+        p_wrk: &mut ShVec<i32>,
+        p_sync: &mut ShVec<i64>,
+    ) -> usize {
+        let my_pe = scope.my_pe() as usize;
+        let mut num_ops = 1;
+        let pe_size = scope.num_pes();
+        let pe_start = 0;
+        let log_pe_stride = 0;
+        unsafe {
+            shmem_int_sum_to_all(
+                other.as_mut_ptr().cast(),
+                self.as_ptr().cast(),
+                (self.len() * std::mem::size_of::<T>() / std::mem::size_of::<u64>()) as i32,
+                pe_start,
+                log_pe_stride,
+                pe_size,
+                p_wrk.as_mut_ptr(),
+                p_sync.as_mut_ptr(),
+            );
+
+            // for i in 0..pe_size as i32 {
+            //     if i != my_pe as i32 {
+            //         for j in 0..self.len() / P2P_SIZE {
+            //             self[j..std::cmp::min(j + P2P_SIZE, self.len())].put_to(other, i);
+            //         }
+            //         num_ops += std::cmp::max(1, self.len() / P2P_SIZE) as usize;
+            //     }
+            // }
+
+            scope.barrier_all();
+        }
+
+        num_ops
     }
 
     pub fn fetch_add_i32(&mut self, value: i32, target_pe: i32) -> i32 {

@@ -390,6 +390,7 @@ pub fn bandwidth_loop<'a>(
                             0,
                             num_pe as i32,
                             &mut psync,
+                            scope,
                         );
                     }
                     Operation::Atomic {
