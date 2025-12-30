@@ -95,7 +95,27 @@
         "pre-commit-hooks": [
           "git-hooks"
         ],
+        "rust-overlay": "rust-overlay",
         "ucx": "ucx"
+      }
+    },
+    "rust-overlay": {
+      "inputs": {
+        "nixpkgs": [
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1767062690,
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "rev": "943d2d0bf1b86267287aff826ebd1138d83113b7",
+        "type": "github"
+      },
+      "original": {
+        "owner": "oxalica",
+        "repo": "rust-overlay",
+        "type": "github"
       }
     },
     "ucx": {

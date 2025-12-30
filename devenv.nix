@@ -14,8 +14,14 @@
   packages = with pkgs; [
     git
     gcc15
+    libclang
   ];
 
+  env.LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
+
   # https://devenv.sh/languages/
-  languages.rust.enable = true;
+  languages.rust = {
+    enable = true;
+    toolchainFile = ./rust-toolchain.toml;
+  };
 }
