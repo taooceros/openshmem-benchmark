@@ -1,0 +1,4 @@
+inputs:
+  ucx:
+    url: github:openucx/ucx
+    flake: false
