@@ -76,7 +76,15 @@ def execute [
         []
     }
 
-    (oshrun --wdir . --host $hosts --mca coll_ucc_enable 0 --mca scoll_ucc_enable 1 --mca scoll_ucc_priority 100 -x UCC_TL_MLX5_NET_DEVICES=($device) -x UCX_NET_DEVICES=($device) -x UCX_RC_MLX5_DM_COUNT=0 -x UCX_DC_MLX5_DM_COUNT=0
+    (oshrun 
+        --wdir . 
+        -mca pml ucx --mca btl ^uct -x UCX_NET_DEVICES=mlx5_0:1 -x UCX_TLS=rc -x UCX_LOG_LEVEL=REQ -x UCX_LOG_FILE=ucx_%h_%p.log
+        -mca ompi_mpi_show_mca_params 1
+        -x OMPI_MCA_opal_cuda_support=0
+        -mca mpi_param_check 1
+        -mca mpi_abort_print_stack 1
+        --mca coll_tuned_use_dynamic_rules 1
+        --host $hosts 
         ./target/release/benchmark
         ...$operation
         --epoch-size $epoch_size
@@ -98,7 +106,7 @@ def "main test" [
     --iterations (-i): int = 10000
     --operation (-o): record = { "group": "range", "operation": "put" }
     --duration: int = 10
-    --num_pe: int = 2
+    --num_pe: int = 1
     --num_working_set: int = 1
     --additional_args: list<string> = []
     --latency
