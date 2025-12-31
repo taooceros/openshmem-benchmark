@@ -1,8 +1,12 @@
 #!/usr/bin/env nu
 
 let second_host = $env.PEER
+let peer_cwd = $env.PEER_CWD? | default "openshmem-benchmark"
+
 let device = $env.DEVICE? | default "mlx5_1:1"
 cargo build --release
+
+ssh $second_host "cd $peer_cwd && cargo build --release"
 
 def "main bench trace2" [] {
     cargo build --release

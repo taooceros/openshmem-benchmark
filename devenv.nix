@@ -7,15 +7,26 @@
 }:
 
 {
-  # https://devenv.sh/basics/
-  env.GREET = "devenv";
+  env.PEER = "venus";
+  env.PEER_CWD = "openshmem-benchmark";
+
 
   # https://devenv.sh/packages/
   packages = with pkgs; [
     git
     gcc15
     libclang
+    nushell
+    mpi
   ];
+
+  scripts.run = {
+    exec = "./run.nu";
+    binary = "nu";
+    package = pkgs.nushell;
+    description = "Run the benchmark";
+  };
+
 
   env.LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
 
