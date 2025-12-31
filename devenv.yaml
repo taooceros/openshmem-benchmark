@@ -6,8 +6,5 @@ inputs:
     inputs:
       nixpkgs:
         follows: nixpkgs
-  ucx:
-    url: github:openucx/ucx
-    flake: false
 imports:
-- ./ucx
+- ./mpi

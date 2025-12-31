@@ -17,7 +17,6 @@
     gcc15
     libclang
     nushell
-    mpi
   ];
 
   scripts.run = {

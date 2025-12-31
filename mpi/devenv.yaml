@@ -1,0 +1,7 @@
+inputs:
+  openmpi:
+    url: github:open-mpi/ompi
+    flake: false
+
+imports:
+  - ./ucx
