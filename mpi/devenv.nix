@@ -19,7 +19,7 @@
           python3
           git
           flex
-          python3Packages.sphinx
+          sphinx
         ];
 
         postPatch = ''
