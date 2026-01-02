@@ -26,6 +26,10 @@
     description = "Run the benchmark";
   };
 
+  tasks."benchmark:build" = {
+    exec = "cargo build --release";
+    description = "Build the benchmark";
+  };
 
   env.LIBCLANG_PATH = "${pkgs.libclang.lib}/lib";
 

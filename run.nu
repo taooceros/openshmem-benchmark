@@ -6,7 +6,7 @@ let peer_cwd = $env.PEER_CWD? | default "openshmem-benchmark"
 let device = $env.DEVICE? | default "mlx5_1:1"
 cargo build --release
 
-ssh $second_host "cd $peer_cwd && cargo build --release"
+ssh $second_host $"cd ($peer_cwd); devenv tasks run benchmark:build"
 
 def "main bench trace2" [] {
     cargo build --release
@@ -20,9 +20,9 @@ def "main bench trace2" [] {
     let num_pes = [1 2 4 8 16 32]
 
     let records = nested_each [$num_pes $files] {|num_pe: int file: string|
-        { 
-            "file": $file, 
-            "num_pe": $num_pe, 
+        {
+            "file": $file,
+            "num_pe": $num_pe,
             "record": (main run trace $file $num_pe)
         }
     }
@@ -39,14 +39,14 @@ def "main run trace" [file: string, num_pes: int] {
 
     (oshrun
     -n ($num_pes * 2)
-    --wdir . 
-    --host $hosts 
-    --mca coll_ucc_enable 0 
-    --mca scoll_ucc_enable 1 
-    --mca scoll_ucc_priority 100 
-    -x UCC_TL_MLX5_NET_DEVICES=($device) 
-    -x UCX_NET_DEVICES=($device) 
-    -x UCX_RC_MLX5_DM_COUNT=0 -x UCX_DC_MLX5_DM_COUNT=0 
+    --wdir .
+    --host $hosts
+    --mca coll_ucc_enable 0
+    --mca scoll_ucc_enable 1
+    --mca scoll_ucc_priority 100
+    -x UCC_TL_MLX5_NET_DEVICES=($device)
+    -x UCX_NET_DEVICES=($device)
+    -x UCX_RC_MLX5_DM_COUNT=0 -x UCX_DC_MLX5_DM_COUNT=0
     -x RUST_BACKTRACE=1
     ./target/release/trace-execution --trace-file $file) | lines | where {|it| $it | str starts-with "Op/s"} | get 0 | parse "Op/s: {throughput}" | get throughput | into float
 }
@@ -105,15 +105,15 @@ def execute [
         []
     }
 
-    (oshrun 
-        --wdir . 
+    (oshrun
+        --wdir .
         -mca pml ucx --mca btl ^uct -x UCX_NET_DEVICES=mlx5_0:1 -x UCX_TLS=rc -x UCX_LOG_LEVEL=REQ -x UCX_LOG_FILE=ucx_%h_%p.log
         -mca ompi_mpi_show_mca_params 1
         -x OMPI_MCA_opal_cuda_support=0
         -mca mpi_param_check 1
         -mca mpi_abort_print_stack 1
         --mca coll_tuned_use_dynamic_rules 1
-        --host $hosts 
+        --host $hosts
         ./target/release/benchmark
         ...$operation
         --epoch-size $epoch_size
@@ -146,11 +146,11 @@ def "main test" [
 
 def merge_group [] {
     (
-        $in 
-        | group-by data_size epoch_size group op qps_per_instance --to-table 
-        | update items {|row| $row.items.throughput | each {$in | into float} } 
-        | rename --column { items: per_instance_rate, data_size: message_size, num_pe: qps_per_instance} 
-        | insert total_message_rate {|row| $row.per_instance_rate | math sum } 
+        $in
+        | group-by data_size epoch_size group op qps_per_instance --to-table
+        | update items {|row| $row.items.throughput | each {$in | into float} }
+        | rename --column { items: per_instance_rate, data_size: message_size, num_pe: qps_per_instance}
+        | insert total_message_rate {|row| $row.per_instance_rate | math sum }
         | insert median_message_rate {|row| $row.per_instance_rate | math median }
     )
 }
@@ -160,14 +160,14 @@ def single_bench [operation: record, epoch_size: int, data_size: int, iterations
         try {
             print $"($trial) Running with window size: ($epoch_size), data size: ($data_size), iterations: ($iterations)"
             let output = (
-                execute $operation 
-                --epoch_size $epoch_size 
-                --data_size $data_size 
-                --iterations $iterations 
-                --duration $duration 
+                execute $operation
+                --epoch_size $epoch_size
+                --data_size $data_size
+                --iterations $iterations
+                --duration $duration
                 --latency=($latency)
-                --num_pe $num_pe 
-                --additional_args $additional_args 
+                --num_pe $num_pe
+                --additional_args $additional_args
                 err>| to text)
             print $output
             let output_lines = $output | lines
@@ -190,9 +190,9 @@ def single_bench [operation: record, epoch_size: int, data_size: int, iterations
                     "device": $device,
                 })
             }
-            
+
             print $record
-    
+
             sleep 2sec
 
             return $record
@@ -200,7 +200,7 @@ def single_bench [operation: record, epoch_size: int, data_size: int, iterations
         } catch {|err|
             print $"Error occurred: ($err)"
         }
-        
+
         print "Retrying..."
         sleep 1sec
     }
@@ -243,9 +243,9 @@ def "main bench" [] {
 }
 
 def "main bench rma" [] {
-    
+
     let iterations = 500
-    
+
     let operations = [
         ["group", "op"];
         # ["range", "put"]
@@ -267,7 +267,7 @@ def "main bench rma" [] {
 
     $records | merge_group | save "throughputs.json" -f
 
-    
+
 }
 
 def "main bench atomic" [] {
@@ -378,7 +378,7 @@ def "main bench ycsb" [] {
         single_bench { "group": "range", "op": "put-get" } $epoch_size $data_size $iterations $num_pe $duration --additional_args ["--op-sequence", "get,put,get"]
     }
 
-    $records_ycsb_f | merge_group | save "throughputs-ycsb-f.json" -f   
+    $records_ycsb_f | merge_group | save "throughputs-ycsb-f.json" -f
 }
 
 def "main bench trace" [] {
