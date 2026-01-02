@@ -19,8 +19,8 @@
     nushell
   ];
 
-  scripts.run = {
-    exec = "./run.nu";
+  scripts."bench:rma" = {
+    exec = "./run.nu bench rma";
     binary = "nu";
     package = pkgs.nushell;
     description = "Run the benchmark";
