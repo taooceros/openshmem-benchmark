@@ -6,7 +6,7 @@ let peer_cwd = $env.PEER_CWD? | default "openshmem-benchmark"
 let device = $env.DEVICE? | default "mlx5_1:1"
 cargo build --release
 
-ssh $second_host $"zsh -i -c 'cd ($peer_cwd); devenv tasks run benchmark:build'"
+ssh $second_host $"zsh -i -c 'cd ($peer_cwd); git pull; devenv tasks run benchmark:build'"
 
 def "main bench trace2" [] {
     cargo build --release
