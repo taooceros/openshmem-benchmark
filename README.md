@@ -60,6 +60,94 @@ Or if you are inside the shell:
 nu run.nu
 ```
 
+## Running Benchmarks
+
+The `run.nu` script provides several commands to run different types of benchmarks.
+
+### Environment Variables
+
+Before running, you may want to configure the following environment variables:
+
+- `PEER`: The hostname of the second peer for distributed benchmarks (default: `venus`).
+- `PEER_CWD`: The working directory on the peer machine (default: `openshmem-benchmark`).
+- `DEVICE`: The InfiniBand/network device to use (default: `mlx5_1:1`).
+
+### Available Commands
+
+#### Run All Benchmarks
+
+To run the full suite of benchmarks (RMA, Atomic, Latency, Broadcast, All-to-all, YCSB, Trace):
+
+```bash
+nu run.nu bench
+```
+
+#### Run Specific Benchmarks
+
+You can run specific categories of benchmarks:
+
+- **RMA (Remote Memory Access):**
+  ```bash
+  nu run.nu bench rma
+  ```
+- **Atomic Operations:**
+  ```bash
+  nu run.nu bench atomic
+  ```
+- **Latency:**
+  ```bash
+  nu run.nu bench latency
+  ```
+- **Broadcast:**
+  ```bash
+  nu run.nu bench broadcast
+  ```
+- **All-to-All:**
+  ```bash
+  nu run.nu bench alltoall
+  ```
+- **YCSB Workloads:**
+  ```bash
+  nu run.nu bench ycsb
+  ```
+- **Trace Replay:**
+  ```bash
+  nu run.nu bench trace
+  ```
+
+#### Manual / Single Test Run
+
+For debugging or running a specific configuration, use the `test` command:
+
+```bash
+nu run.nu test [flags]
+```
+
+**Options:**
+
+- `--epoch_size` / `-e`: Size of the epoch (default: 16).
+- `--data_size` / `-s`: Size of data payload in bytes (default: 8).
+- `--iterations` / `-i`: Number of iterations (default: 10000).
+- `--duration`: Duration of the test in seconds (default: 10).
+- `--num_pe`: Number of Processing Elements (PEs) (default: 1).
+- `--num_working_set`: Working set size (default: 1).
+- `--latency`: Enable latency measurement.
+- `--operation` / `-o`: Specify the operation as a record (default: `{ "group": "range", "operation": "put" }`).
+
+**Example:**
+
+```bash
+nu run.nu test --data_size 1024 --num_pe 2
+```
+
+#### Profiling
+
+To run a profiling session with flamegraph support:
+
+```bash
+nu run.nu profile
+```
+
 ## Environment Details
 
 The environment provides:
